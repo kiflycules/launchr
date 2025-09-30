@@ -123,33 +123,65 @@ impl SSHModule {
     }
 
     pub fn disconnect(&mut self, index: usize) -> Result<()> {
-        if index < self.active_sessions.len() {
-            let session = self.active_sessions.remove(index);
-            
-            // Try to terminate the SSH process if we have its PID
+        if index >= self.active_sessions.len() { anyhow::bail!("Invalid session index"); }
+
+        let session = self.active_sessions[index].clone();
+
+        // First, try to find and terminate a matching ssh process by scanning processes
+        self.system.refresh_processes(ProcessesToUpdate::All, false);
+        let mut killed_any = false;
+
+        for (pid, proc) in self.system.processes() {
+            let tokens: Vec<String> = proc
+                .cmd()
+                .iter()
+                .map(|s| s.to_string_lossy().into_owned())
+                .collect();
+            if tokens.is_empty() { continue; }
+
+            // Recognize ssh on Windows/Linux
+            let has_ssh_token = tokens.iter().any(|t|
+                t == "ssh" || t == "ssh.exe" || t.ends_with("/ssh") || t.ends_with("/ssh.exe") || t.ends_with("\\ssh.exe")
+            );
+            if !has_ssh_token { continue; }
+
+            // Match by host or user@host
+            let mentions_host = tokens.iter().any(|t| t.contains(&session.host));
+            if !mentions_host { continue; }
+
+            // Terminate this process
+            #[cfg(unix)]
+            {
+                use std::process::Command as StdCommand;
+                let _ = StdCommand::new("kill").arg("-TERM").arg(pid.to_string()).output();
+            }
+            #[cfg(windows)]
+            {
+                use std::process::Command as StdCommand;
+                let _ = StdCommand::new("taskkill").args(&["/PID", &pid.to_string(), "/F"]).output();
+            }
+            killed_any = true;
+        }
+
+        // Fallback: if we had a stored PID, try it as well
+        if !killed_any {
             if let Some(pid) = session.pid {
                 #[cfg(unix)]
                 {
                     use std::process::Command as StdCommand;
-                    let _ = StdCommand::new("kill")
-                        .arg("-TERM")
-                        .arg(pid.to_string())
-                        .output();
+                    let _ = StdCommand::new("kill").arg("-TERM").arg(pid.to_string()).output();
                 }
-
                 #[cfg(windows)]
                 {
                     use std::process::Command as StdCommand;
-                    let _ = StdCommand::new("taskkill")
-                        .args(&["/PID", &pid.to_string(), "/F"])
-                        .output();
+                    let _ = StdCommand::new("taskkill").args(&["/PID", &pid.to_string(), "/F"]).output();
                 }
             }
-            
-            Ok(())
-        } else {
-            anyhow::bail!("Invalid session index");
         }
+
+        // Remove from active list immediately; periodic refresh will also rebuild
+        self.active_sessions.remove(index);
+        Ok(())
     }
 
     pub fn refresh_session_status(&mut self) {
@@ -168,8 +200,10 @@ impl SSHModule {
 
             if tokens.is_empty() { continue; }
 
-            // Consider this process if any token is 'ssh' or ends with '/ssh'
-            let has_ssh_token = tokens.iter().any(|t| t == "ssh" || t.ends_with("/ssh"));
+            // Consider this process if any token indicates ssh (Linux/Windows)
+            let has_ssh_token = tokens.iter().any(|t|
+                t == "ssh" || t == "ssh.exe" || t.ends_with("/ssh") || t.ends_with("/ssh.exe") || t.ends_with("\\ssh.exe")
+            );
             if !has_ssh_token { continue; }
 
             for h in &self.hosts {

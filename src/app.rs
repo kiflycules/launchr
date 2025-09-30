@@ -439,6 +439,8 @@ impl App {
                     Ok(()) => {
                         self.status_message = format!("Disconnected: {}", name);
                         self.notifications_module.push("SSH Disconnected", &name, "warning");
+                        // Immediately refresh sessions so UI reflects removal
+                        self.ssh_module.refresh_session_status();
                     }
                     Err(e) => {
                         self.status_message = format!("Failed to disconnect {}: {}", name, e);
