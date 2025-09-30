@@ -14,17 +14,17 @@ Tested on Linux/macOS/Windows. On Windows, run in a true terminal (Windows Termi
 - Lists: `n` new, `d` delete, `r` refresh, `t` toggle details, `PgUp`/`PgDn` `Home`/`End`
 - Search: `/` open fuzzy search (scoped to current section), type to filter, `Enter` jump, `Esc` close
 - Help: `?` overlay
-- Apps: `Enter` launch, `s` stop process
-- SSH: `x` disconnect latest session
+- Apps: `Enter` launch, `s` stop process (also from Dashboard)
+- SSH: `x` disconnect latest session (actually terminates the ssh process)
 - Scripts: `S` schedule selected script (example every 60s)
 
 Sections: `1` Dashboard, `2` Apps, `3` Bookmarks, `4` SSH, `5` Scripts, `6` Notifications, `7` History
 
 ### Features
 - Dashboard: running processes (scrollable), active SSH sessions, recent notifications
-- Apps: auto-scan PATH for executables; show running processes via sysinfo
+- Apps: auto-scan PATH for executables (on Windows, filters to .exe/.bat/.cmd/.ps1); show running processes via sysinfo
 - Bookmarks: open files/dirs/URLs with platform-native open
-- SSH: connect via system SSH in a new terminal when possible
+- SSH: connect via system SSH (uses `-p <port>`); auto-detects active sessions by scanning running `ssh` processes; disconnect (`x`) ends the underlying process
 - Scripts: run commands; simple scheduling (example)
 - History: browse and run recent shell commands
 - Context-aware fuzzy search `/` per section

@@ -39,6 +39,14 @@ impl AppsModule {
                         if let Ok(file_type) = entry.file_type() {
                             if file_type.is_file() || file_type.is_symlink() {
                                 if let Some(name) = entry.file_name().to_str() {
+                                    // On Windows, filter to common executable extensions to avoid DLLs and assets
+                                    #[cfg(windows)]
+                                    {
+                                        let lower = name.to_ascii_lowercase();
+                                        let is_exe = lower.ends_with(".exe") || lower.ends_with(".bat") || lower.ends_with(".cmd") || lower.ends_with(".ps1");
+                                        if !is_exe { continue; }
+                                    }
+
                                     if which::which(name).is_ok() {
                                         executables.insert(name.to_string());
                                     }
@@ -85,18 +93,37 @@ impl AppsModule {
         Ok(())
     }
 
-    pub fn stop_process(&mut self, pid: u32) {
+    pub fn stop_process(&mut self, pid: u32) -> Result<()> {
         #[cfg(unix)]
         {
             use std::process::Command as StdCommand;
-            let _ = StdCommand::new("kill").arg("-15").arg(pid.to_string()).output();
+            let output = StdCommand::new("kill")
+                .arg("-15")
+                .arg(pid.to_string())
+                .output()?;
+            
+            if !output.status.success() {
+                // Try SIGKILL if SIGTERM fails
+                let _ = StdCommand::new("kill")
+                    .arg("-9")
+                    .arg(pid.to_string())
+                    .output();
+            }
         }
 
         #[cfg(windows)]
         {
             use std::process::Command as StdCommand;
-            let _ = StdCommand::new("taskkill").args(&["/PID", &pid.to_string(), "/F"]).output();
+            let output = StdCommand::new("taskkill")
+                .args(&["/PID", &pid.to_string(), "/F"])
+                .output()?;
+            
+            if !output.status.success() {
+                anyhow::bail!("Failed to terminate process {}: {}", pid, String::from_utf8_lossy(&output.stderr));
+            }
         }
+        
+        Ok(())
     }
 
     /// Snapshot basic CPU metrics for header: (cores, avg_usage)

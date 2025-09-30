@@ -123,12 +123,15 @@ impl App {
     pub async fn activate_item(&mut self) -> Result<()> {
         match self.current_section {
             MenuSection::Apps => {
-                if self.selected_index < self.apps_module.available_apps.len() {
+                let available_apps_len = self.apps_module.available_apps.len();
+                if self.selected_index < available_apps_len {
+                    // Launch an available app
                     let app_name = self.apps_module.available_apps[self.selected_index].clone();
                     self.apps_module.launch_app(&app_name).await?;
                     self.status_message = format!("Launched: {}", app_name);
                     self.notifications_module.push("App Launched", &app_name, "info");
                 }
+                // If selected_index >= available_apps_len, it's a process - no action on Enter
             }
             MenuSection::Bookmarks => {
                 if self.selected_index < self.bookmarks_module.bookmarks.len() {
@@ -209,6 +212,32 @@ impl App {
 
     pub fn stop_selected(&mut self) {
         if self.current_section == MenuSection::Apps {
+            // Check if we're selecting from running processes (bottom half of Apps view)
+            let available_apps_len = self.apps_module.available_apps.len();
+            if self.selected_index >= available_apps_len {
+                let process_index = self.selected_index - available_apps_len;
+                if let Some(process) = self
+                    .apps_module
+                    .running_processes
+                    .get(process_index)
+                    .cloned()
+                {
+                    let pid = process.pid;
+                    let name = process.name.clone();
+                    match self.apps_module.stop_process(pid) {
+                        Ok(()) => {
+                            self.status_message = format!("Stopped process: {}", name);
+                            self.notifications_module.push("Process Stopped", &name, "warning");
+                        }
+                        Err(e) => {
+                            self.status_message = format!("Failed to stop process {}: {}", name, e);
+                            self.notifications_module.push("Process Stop Failed", &name, "error");
+                        }
+                    }
+                }
+            }
+        } else if self.current_section == MenuSection::Dashboard {
+            // In Dashboard, we can stop processes directly
             if let Some(process) = self
                 .apps_module
                 .running_processes
@@ -217,9 +246,16 @@ impl App {
             {
                 let pid = process.pid;
                 let name = process.name.clone();
-                self.apps_module.stop_process(pid);
-                self.status_message = format!("Stopped process: {}", name);
-                self.notifications_module.push("Process Stopped", &name, "warning");
+                match self.apps_module.stop_process(pid) {
+                    Ok(()) => {
+                        self.status_message = format!("Stopped process: {}", name);
+                        self.notifications_module.push("Process Stopped", &name, "warning");
+                    }
+                    Err(e) => {
+                        self.status_message = format!("Failed to stop process {}: {}", name, e);
+                        self.notifications_module.push("Process Stop Failed", &name, "error");
+                    }
+                }
             }
         }
     }
@@ -358,6 +394,8 @@ impl App {
             if self.current_section == MenuSection::Dashboard || self.current_section == MenuSection::Apps {
                 self.apps_module.refresh_running_processes().await?;
             }
+            // Refresh SSH session status
+            self.ssh_module.refresh_session_status();
             self.last_refresh = Instant::now();
         }
         Ok(())
@@ -366,7 +404,10 @@ impl App {
     fn get_current_list_len(&self) -> usize {
         match self.current_section {
             MenuSection::Dashboard => self.apps_module.running_processes.len(),
-            MenuSection::Apps => self.apps_module.available_apps.len(),
+            MenuSection::Apps => {
+                // Apps section shows both available apps and running processes
+                self.apps_module.available_apps.len() + self.apps_module.running_processes.len()
+            },
             MenuSection::Bookmarks => self.bookmarks_module.bookmarks.len(),
             MenuSection::SSH => self.ssh_module.hosts.len(),
             MenuSection::Scripts => self.scripts_module.scripts.len(),
@@ -394,9 +435,16 @@ impl App {
             if !self.ssh_module.active_sessions.is_empty() {
                 let idx = self.ssh_module.active_sessions.len() - 1;
                 let name = self.ssh_module.active_sessions[idx].name.clone();
-                self.ssh_module.disconnect(idx);
-                self.status_message = format!("Disconnected: {}", name);
-                self.notifications_module.push("SSH Disconnected", &name, "warning");
+                match self.ssh_module.disconnect(idx) {
+                    Ok(()) => {
+                        self.status_message = format!("Disconnected: {}", name);
+                        self.notifications_module.push("SSH Disconnected", &name, "warning");
+                    }
+                    Err(e) => {
+                        self.status_message = format!("Failed to disconnect {}: {}", name, e);
+                        self.notifications_module.push("SSH Disconnect Failed", &name, "error");
+                    }
+                }
             }
         }
     }

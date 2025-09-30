@@ -161,7 +161,10 @@ fn draw_dashboard(f: &mut Frame, app: &App, area: Rect) {
         .ssh_module
         .active_sessions
         .iter()
-        .map(|s| ListItem::new(format!("🔗 {} - {}", s.name, s.status)))
+        .map(|s| {
+            let status_icon = if s.status == "Connected" { "🟢" } else { "🔴" };
+            ListItem::new(format!("{} {} - {}", status_icon, s.name, s.status))
+        })
         .collect();
 
     let ssh_block = List::new(ssh_sessions)
@@ -206,15 +209,22 @@ fn draw_apps(f: &mut Frame, app: &App, area: Rect) {
         .constraints([Constraint::Percentage(50), Constraint::Percentage(50)])
         .split(area);
 
-    // Windowed list for performance
-    let total = app.apps_module.available_apps.len();
-    let window_height = (chunks[0].height.saturating_sub(2)) as usize; // borders
-    let start = app.selected_index.saturating_sub(window_height / 2);
-    let end = usize::min(start + window_height, total);
+    // Available Apps section
+    let available_apps = &app.apps_module.available_apps;
+    let window_height = (chunks[0].height.saturating_sub(2)) as usize;
+    let available_len = available_apps.len();
+    let selected_in_apps = if app.selected_index < available_len { app.selected_index } else { available_len.saturating_sub(1) };
+    let start = if available_len == 0 {
+        0
+    } else {
+        let half = window_height / 2;
+        let base = selected_in_apps.saturating_sub(half);
+        let max_start = available_len.saturating_sub(window_height);
+        usize::min(base, max_start)
+    };
+    let end = usize::min(start + window_height, available_len);
 
-    let items: Vec<ListItem> = app
-        .apps_module
-        .available_apps[start..end]
+    let items: Vec<ListItem> = available_apps.get(start..end).unwrap_or(&[])
         .iter()
         .enumerate()
         .map(|(offset, name)| {
@@ -228,7 +238,7 @@ fn draw_apps(f: &mut Frame, app: &App, area: Rect) {
         })
         .collect();
 
-    if total == 0 {
+    if available_apps.is_empty() {
         let empty = if app.pending_initial_scan { "Scanning PATH..." } else { "No executables found in PATH" };
         let p = Paragraph::new(empty)
             .block(Block::default().title("Available Apps").borders(Borders::ALL));
@@ -239,16 +249,35 @@ fn draw_apps(f: &mut Frame, app: &App, area: Rect) {
         f.render_widget(apps_list, chunks[0]);
     }
 
-    let running: Vec<ListItem> = app
-        .apps_module
-        .running_processes
+    // Running Processes section
+    let running_processes = &app.apps_module.running_processes;
+    let process_window_height = (chunks[1].height.saturating_sub(2)) as usize;
+    let proc_len = running_processes.len();
+    let process_selection = if app.selected_index >= available_len { app.selected_index - available_len } else { 0 };
+    let process_start = if proc_len == 0 {
+        0
+    } else {
+        let half = process_window_height / 2;
+        let base = process_selection.saturating_sub(half);
+        let max_start = proc_len.saturating_sub(process_window_height);
+        usize::min(base, max_start)
+    };
+    let process_end = usize::min(process_start + process_window_height, proc_len);
+
+    let running: Vec<ListItem> = running_processes.get(process_start..process_end).unwrap_or(&[])
         .iter()
-        .take(usize::min(app.apps_module.running_processes.len(), (chunks[1].height.saturating_sub(2)) as usize))
-        .map(|p| {
+        .enumerate()
+        .map(|(offset, p)| {
+            let i = available_len + process_start + offset;
+            let style = if i == app.selected_index {
+                Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)
+            } else {
+                Style::default()
+            };
             ListItem::new(format!(
-                "{:<6} {:<25} CPU: {:.1}% MEM: {:.1} MB",
+                "{:<6} {:<20} CPU: {:.1}% MEM: {:.1} MB",
                 p.pid, p.name, p.cpu_usage, p.memory_usage
-            ))
+            )).style(style)
         })
         .collect();
 
@@ -325,9 +354,11 @@ fn draw_ssh(f: &mut Frame, app: &App, area: Rect) {
         .active_sessions
         .iter()
         .map(|s| {
-            let status_color = if s.status == "Connected" { Color::Green } else { Color::Yellow };
+            let status_color = if s.status == "Connected" { Color::Green } else { Color::Red };
+            let status_icon = if s.status == "Connected" { "🟢" } else { "🔴" };
             ListItem::new(Line::from(vec![
-                Span::raw("🔗 "),
+                Span::raw(status_icon),
+                Span::raw(" "),
                 Span::styled(s.name.clone(), Style::default().fg(status_color)),
                 Span::raw(format!(
                     " - {} @ {} (since {})",
@@ -469,7 +500,7 @@ fn draw_history(f: &mut Frame, app: &App, area: Rect) {
 
 fn draw_status(f: &mut Frame, app: &App, area: Rect) {
     let help_text = match app.state {
-        AppState::Normal => "q: Quit | Tab: Next Section | ↑↓/jk: Navigate | Enter: Select | n: New | d: Delete | r: Refresh | s: Stop | t: Toggle",
+        AppState::Normal => "q: Quit | Tab: Next Section | ↑↓/jk: Navigate | Enter: Select | n: New | d: Delete | r: Refresh | s: Stop Process | x: Disconnect SSH | t: Toggle",
         AppState::Input => "Enter: Submit | Esc: Cancel | Type your input",
         AppState::Confirm => "y: Yes | n: No | Esc: Cancel",
         AppState::Search => "/: Search | Enter: Jump | Esc: Close | ↑↓/PgUp/PgDn/Home/End: Navigate",
@@ -535,7 +566,7 @@ fn centered_rect(percent_x: u16, percent_y: u16, r: Rect) -> Rect {
 
 fn draw_help_popup(f: &mut Frame) {
     let area = centered_rect(70, 70, f.area());
-    let help = "launchr Help\n\nKeys:\n  q: Quit\n  Tab: Next Section\n  1-6: Jump to section\n  j/k or ↑/↓: Navigate\n  PgUp/PgDn, Home/End: Page/Jump\n  Enter: Activate\n  n/d: New/Delete\n  r: Refresh\n  s: Stop process (Apps)\n  t: Toggle details (Scripts)\n  /: Open fuzzy search\n  In search: type to filter, ↑/↓/PgUp/PgDn/Home/End to move, Enter to jump, Esc to close\n  S: Schedule script (Scripts)\n  x: Disconnect latest SSH\n  ?: Toggle this help";
+    let help = "launchr Help\n\nKeys:\n  q: Quit\n  Tab: Next Section\n  1-7: Jump to section\n  j/k or ↑/↓: Navigate\n  PgUp/PgDn, Home/End: Page/Jump\n  Enter: Activate\n  n/d: New/Delete\n  r: Refresh\n  s: Stop process (Dashboard/Apps)\n  t: Toggle details (Scripts)\n  /: Open fuzzy search\n  In search: type to filter, ↑/↓/PgUp/PgDn/Home/End to move, Enter to jump, Esc to close\n  S: Schedule script (Scripts)\n  x: Disconnect latest SSH\n  ?: Toggle this help\n\nSections:\n  Dashboard: View running processes (s to stop)\n  Apps: Launch apps or stop processes (s to stop)\n  SSH: Connect to hosts or disconnect sessions (x to disconnect)\n  Scripts: Run or schedule scripts\n  History: Re-run shell commands";
 
     let paragraph = Paragraph::new(help)
         .block(
