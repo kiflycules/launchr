@@ -1,0 +1,536 @@
+use anyhow::Result;
+use std::time::{Duration, Instant};
+
+use crate::config::Config;
+use crate::modules::{
+    apps::AppsModule,
+    bookmarks::BookmarksModule,
+    notifications::NotificationsModule,
+    scripts::ScriptsModule,
+    ssh::SSHModule,
+    history::ShellHistoryModule,
+};
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum MenuSection {
+    Dashboard,
+    Apps,
+    Bookmarks,
+    SSH,
+    Scripts,
+    Notifications,
+    History,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum AppState {
+    Normal,
+    Input,
+    Confirm,
+    Search,
+}
+
+pub struct App {
+    pub current_section: MenuSection,
+    pub state: AppState,
+    pub selected_index: usize,
+    pub input_buffer: String,
+    pub input_cursor: usize,
+    pub input_prompt: String,
+    pub confirm_message: String,
+    pub status_message: String,
+    pub show_detail: bool,
+    pub last_refresh: Instant,
+
+    pub apps_module: AppsModule,
+    pub bookmarks_module: BookmarksModule,
+    pub ssh_module: SSHModule,
+    pub scripts_module: ScriptsModule,
+    pub notifications_module: NotificationsModule,
+    pub show_help: bool,
+    pub pending_initial_scan: bool,
+
+    // Fuzzy search state
+    pub search_query: String,
+    pub search_cursor: usize,
+    pub search_results: Vec<SearchResult>,
+    pub search_selected: usize,
+
+    // Shell
+    pub shell_module: ShellHistoryModule,
+}
+
+#[derive(Debug, Clone)]
+pub struct SearchResult {
+    pub section: MenuSection,
+    pub index: usize,
+    pub label: String,
+    score: i32,
+}
+
+impl App {
+    pub async fn new() -> Result<Self> {
+        let config = Config::load()?;
+
+        let apps_module = AppsModule::new();
+
+        let bookmarks_module = BookmarksModule::new(&config);
+        let ssh_module = SSHModule::new(&config);
+        let scripts_module = ScriptsModule::new(&config);
+        let notifications_module = NotificationsModule::new();
+        let shell_module = ShellHistoryModule::new();
+
+        Ok(Self {
+            current_section: MenuSection::Dashboard,
+            state: AppState::Normal,
+            selected_index: 0,
+            input_buffer: String::new(),
+            input_cursor: 0,
+            input_prompt: String::new(),
+            confirm_message: String::new(),
+            status_message: String::from("Welcome to launchr! Press '?' for help"),
+            show_detail: false,
+            last_refresh: Instant::now(),
+            apps_module,
+            bookmarks_module,
+            ssh_module,
+            scripts_module,
+            notifications_module,
+            show_help: false,
+            pending_initial_scan: true,
+            search_query: String::new(),
+            search_cursor: 0,
+            search_results: Vec::new(),
+            search_selected: 0,
+            shell_module,
+        })
+    }
+
+    pub fn next_item(&mut self) {
+        let max = self.get_current_list_len();
+        if max > 0 {
+            self.selected_index = (self.selected_index + 1) % max;
+        }
+    }
+
+    pub fn previous_item(&mut self) {
+        let max = self.get_current_list_len();
+        if max > 0 {
+            self.selected_index = if self.selected_index == 0 { max - 1 } else { self.selected_index - 1 };
+        }
+    }
+
+    pub async fn activate_item(&mut self) -> Result<()> {
+        match self.current_section {
+            MenuSection::Apps => {
+                if self.selected_index < self.apps_module.available_apps.len() {
+                    let app_name = self.apps_module.available_apps[self.selected_index].clone();
+                    self.apps_module.launch_app(&app_name).await?;
+                    self.status_message = format!("Launched: {}", app_name);
+                    self.notifications_module.push("App Launched", &app_name, "info");
+                }
+            }
+            MenuSection::Bookmarks => {
+                if self.selected_index < self.bookmarks_module.bookmarks.len() {
+                    self.bookmarks_module.open_bookmark(self.selected_index)?;
+                    self.status_message = format!(
+                        "Opened: {}",
+                        self.bookmarks_module.bookmarks[self.selected_index].name
+                    );
+                    let b = &self.bookmarks_module.bookmarks[self.selected_index];
+                    self.notifications_module.push("Bookmark Opened", &b.name, "info");
+                }
+            }
+            MenuSection::SSH => {
+                if self.selected_index < self.ssh_module.hosts.len() {
+                    let host_name = self.ssh_module.hosts[self.selected_index].name.clone();
+                    self.status_message = format!("Connecting to {}...", host_name);
+                    self.ssh_module.connect(self.selected_index).await?;
+                    self.notifications_module.push("SSH Connected", &host_name, "info");
+                }
+            }
+            MenuSection::Scripts => {
+                if self.selected_index < self.scripts_module.scripts.len() {
+                    let script_name = self.scripts_module.scripts[self.selected_index].name.clone();
+                    self.scripts_module.run_script(self.selected_index).await?;
+                    self.status_message = format!("Executed: {}", script_name);
+                    self.notifications_module.push("Script Executed", &script_name, "info");
+                }
+            }
+            MenuSection::History => {
+                if self.selected_index < self.shell_module.entries.len() {
+                    let cmd = self.shell_module.entries[self.selected_index].command.clone();
+                    self.shell_module.run_entry(self.selected_index);
+                    self.status_message = format!("Ran: {}", cmd);
+                    self.notifications_module.push("History Ran", &cmd, "info");
+                }
+            }
+            _ => {}
+        }
+        Ok(())
+    }
+
+    pub fn new_item(&mut self) {
+        self.state = AppState::Input;
+        self.input_buffer.clear();
+        self.input_cursor = 0;
+        self.input_prompt = match self.current_section {
+            MenuSection::Bookmarks => "Enter bookmark (name|path|type): ".to_string(),
+            MenuSection::SSH => "Enter SSH host (name|user@host:port): ".to_string(),
+            MenuSection::Scripts => "Enter script (name|command): ".to_string(),
+            _ => "Enter value: ".to_string(),
+        };
+    }
+
+    pub fn delete_item(&mut self) {
+        self.state = AppState::Confirm;
+        self.confirm_message = "Delete selected item? (y/n)".to_string();
+    }
+
+    pub async fn refresh(&mut self) -> Result<()> {
+        match self.current_section {
+            MenuSection::Apps => {
+                self.apps_module.refresh_running_processes().await?;
+                self.status_message = "Refreshed running processes".to_string();
+            }
+            MenuSection::Dashboard => {
+                self.apps_module.refresh_running_processes().await?;
+                self.status_message = "Refreshed dashboard".to_string();
+            }
+            MenuSection::History => {
+                self.shell_module.refresh();
+                self.status_message = "Refreshed history".to_string();
+            }
+            _ => {}
+        }
+        self.last_refresh = Instant::now();
+        Ok(())
+    }
+
+    pub fn stop_selected(&mut self) {
+        if self.current_section == MenuSection::Apps {
+            if let Some(process) = self
+                .apps_module
+                .running_processes
+                .get(self.selected_index)
+                .cloned()
+            {
+                let pid = process.pid;
+                let name = process.name.clone();
+                self.apps_module.stop_process(pid);
+                self.status_message = format!("Stopped process: {}", name);
+                self.notifications_module.push("Process Stopped", &name, "warning");
+            }
+        }
+    }
+
+    pub fn toggle_detail(&mut self) {
+        self.show_detail = !self.show_detail;
+    }
+
+    // List navigation helpers
+    pub fn page_up(&mut self) {
+        let len = self.get_current_list_len();
+        if len == 0 { return; }
+        let step = 10usize;
+        self.selected_index = self.selected_index.saturating_sub(step);
+    }
+
+    pub fn page_down(&mut self) {
+        let len = self.get_current_list_len();
+        if len == 0 { return; }
+        let step = 10usize;
+        self.selected_index = usize::min(self.selected_index.saturating_add(step), len.saturating_sub(1));
+    }
+
+    pub fn go_home(&mut self) { self.selected_index = 0; }
+    pub fn go_end(&mut self) {
+        let len = self.get_current_list_len();
+        if len == 0 { return; }
+        self.selected_index = len - 1;
+    }
+
+    pub fn next_section(&mut self) {
+        self.current_section = match self.current_section {
+            MenuSection::Dashboard => MenuSection::Apps,
+            MenuSection::Apps => MenuSection::Bookmarks,
+            MenuSection::Bookmarks => MenuSection::SSH,
+            MenuSection::SSH => MenuSection::Scripts,
+            MenuSection::Scripts => MenuSection::Notifications,
+            MenuSection::Notifications => MenuSection::History,
+            MenuSection::History => MenuSection::Dashboard,
+        };
+        self.selected_index = 0;
+    }
+
+    pub fn cancel_input(&mut self) {
+        self.state = AppState::Normal;
+        self.input_buffer.clear();
+        self.input_cursor = 0;
+    }
+
+    pub async fn submit_input(&mut self) -> Result<()> {
+        let input = self.input_buffer.clone();
+        match self.current_section {
+            MenuSection::Bookmarks => {
+                self.bookmarks_module.add_from_string(&input)?;
+                self.status_message = "Bookmark added".to_string();
+                self.notifications_module.push("Bookmark Added", &input, "info");
+            }
+            MenuSection::SSH => {
+                self.ssh_module.add_from_string(&input)?;
+                self.status_message = "SSH host added".to_string();
+                self.notifications_module.push("SSH Host Added", &input, "info");
+            }
+            MenuSection::Scripts => {
+                self.scripts_module.add_from_string(&input)?;
+                self.status_message = "Script added".to_string();
+                self.notifications_module.push("Script Added", &input, "info");
+            }
+            _ => {}
+        }
+        self.cancel_input();
+        Ok(())
+    }
+
+    pub async fn confirm_action(&mut self) -> Result<()> {
+        match self.current_section {
+            MenuSection::Bookmarks => {
+                self.bookmarks_module.delete(self.selected_index);
+                self.status_message = "Bookmark deleted".to_string();
+                self.notifications_module.push("Bookmark Deleted", "", "warning");
+            }
+            MenuSection::SSH => {
+                self.ssh_module.delete(self.selected_index);
+                self.status_message = "SSH host deleted".to_string();
+                self.notifications_module.push("SSH Host Deleted", "", "warning");
+            }
+            MenuSection::Scripts => {
+                self.scripts_module.delete(self.selected_index);
+                self.status_message = "Script deleted".to_string();
+                self.notifications_module.push("Script Deleted", "", "warning");
+            }
+            _ => {}
+        }
+        if self.selected_index > 0 { self.selected_index -= 1; }
+        self.cancel_confirm();
+        Ok(())
+    }
+
+    pub fn cancel_confirm(&mut self) {
+        self.state = AppState::Normal;
+        self.confirm_message.clear();
+    }
+
+    pub fn input_char(&mut self, c: char) {
+        self.input_buffer.insert(self.input_cursor, c);
+        self.input_cursor += 1;
+    }
+
+    pub fn input_backspace(&mut self) {
+        if self.input_cursor > 0 {
+            self.input_buffer.remove(self.input_cursor - 1);
+            self.input_cursor -= 1;
+        }
+    }
+
+    pub fn input_move_left(&mut self) {
+        if self.input_cursor > 0 {
+            self.input_cursor -= 1;
+        }
+    }
+
+    pub fn input_move_right(&mut self) {
+        if self.input_cursor < self.input_buffer.len() {
+            self.input_cursor += 1;
+        }
+    }
+
+    pub async fn auto_refresh(&mut self) -> Result<()> {
+        if self.pending_initial_scan {
+            // Do initial heavy work after first frame to speed up startup
+            self.apps_module.scan_path_executables().await?;
+            self.apps_module.refresh_running_processes().await?;
+            self.pending_initial_scan = false;
+        }
+
+        if self.last_refresh.elapsed() > Duration::from_secs(5) {
+            if self.current_section == MenuSection::Dashboard || self.current_section == MenuSection::Apps {
+                self.apps_module.refresh_running_processes().await?;
+            }
+            self.last_refresh = Instant::now();
+        }
+        Ok(())
+    }
+
+    fn get_current_list_len(&self) -> usize {
+        match self.current_section {
+            MenuSection::Dashboard => self.apps_module.running_processes.len(),
+            MenuSection::Apps => self.apps_module.available_apps.len(),
+            MenuSection::Bookmarks => self.bookmarks_module.bookmarks.len(),
+            MenuSection::SSH => self.ssh_module.hosts.len(),
+            MenuSection::Scripts => self.scripts_module.scripts.len(),
+            MenuSection::Notifications => self.notifications_module.notifications.len(),
+            MenuSection::History => self.shell_module.entries.len(),
+        }
+    }
+
+    pub async fn schedule_selected_script(&mut self) -> Result<()> {
+        if self.current_section == MenuSection::Scripts {
+            if self.selected_index < self.scripts_module.scripts.len() {
+                self.scripts_module
+                    .schedule_script(self.selected_index, 60)
+                    .await?;
+                let name = self.scripts_module.scripts[self.selected_index].name.clone();
+                self.status_message = format!("Scheduled: {} (every 60s)", name);
+                self.notifications_module.push("Script Scheduled", &name, "info");
+            }
+        }
+        Ok(())
+    }
+
+    pub fn disconnect_latest_session(&mut self) {
+        if self.current_section == MenuSection::SSH {
+            if !self.ssh_module.active_sessions.is_empty() {
+                let idx = self.ssh_module.active_sessions.len() - 1;
+                let name = self.ssh_module.active_sessions[idx].name.clone();
+                self.ssh_module.disconnect(idx);
+                self.status_message = format!("Disconnected: {}", name);
+                self.notifications_module.push("SSH Disconnected", &name, "warning");
+            }
+        }
+    }
+
+    pub fn report_error(&mut self, context: &str, err: anyhow::Error) {
+        let msg = format!("{}: {}", context, err);
+        self.status_message = msg.clone();
+        self.notifications_module.push(context, msg, "error");
+    }
+
+    // Search mode
+    pub fn open_search(&mut self) {
+        self.state = AppState::Search;
+        self.search_query.clear();
+        self.search_cursor = 0;
+        self.search_selected = 0;
+        self.rebuild_search_results();
+    }
+
+    pub fn close_search(&mut self) { self.state = AppState::Normal; }
+
+    pub fn submit_search(&mut self) {
+        if self.search_results.is_empty() { self.close_search(); return; }
+        let sel = self.search_results[self.search_selected].clone();
+        self.current_section = sel.section;
+        self.selected_index = sel.index;
+        self.status_message = format!("Jumped to: {}", sel.label);
+        self.close_search();
+    }
+
+    pub fn search_input_char(&mut self, c: char) {
+        self.search_query.insert(self.search_cursor, c);
+        self.search_cursor += 1;
+        self.rebuild_search_results();
+    }
+    pub fn search_backspace(&mut self) {
+        if self.search_cursor > 0 {
+            self.search_query.remove(self.search_cursor - 1);
+            self.search_cursor -= 1;
+            self.rebuild_search_results();
+        }
+    }
+    pub fn search_move_left(&mut self) { if self.search_cursor > 0 { self.search_cursor -= 1; } }
+    pub fn search_move_right(&mut self) { if self.search_cursor < self.search_query.len() { self.search_cursor += 1; } }
+    pub fn search_next(&mut self) { if !self.search_results.is_empty() { self.search_selected = (self.search_selected + 1) % self.search_results.len(); } }
+    pub fn search_prev(&mut self) { if !self.search_results.is_empty() { if self.search_selected == 0 { self.search_selected = self.search_results.len() - 1; } else { self.search_selected -= 1; } } }
+    pub fn search_page_up(&mut self) { if !self.search_results.is_empty() { self.search_selected = self.search_selected.saturating_sub(10); } }
+    pub fn search_page_down(&mut self) { if !self.search_results.is_empty() { self.search_selected = usize::min(self.search_selected + 10, self.search_results.len().saturating_sub(1)); } }
+    pub fn search_go_home(&mut self) { self.search_selected = 0; }
+    pub fn search_go_end(&mut self) { if !self.search_results.is_empty() { self.search_selected = self.search_results.len() - 1; } }
+
+    fn rebuild_search_results(&mut self) {
+        let mut results: Vec<SearchResult> = Vec::new();
+        match self.current_section {
+            MenuSection::Dashboard => {
+                for (i, p) in self.apps_module.running_processes.iter().enumerate() {
+                    let label = format!("Process: {} (pid {})", p.name, p.pid);
+                    if let Some(score) = score_match(&label, &self.search_query) {
+                        results.push(SearchResult { section: MenuSection::Dashboard, index: i, label, score });
+                    }
+                }
+            }
+            MenuSection::Apps => {
+                for (i, name) in self.apps_module.available_apps.iter().enumerate() {
+                    if let Some(score) = score_match(name, &self.search_query) {
+                        results.push(SearchResult { section: MenuSection::Apps, index: i, label: format!("App: {}", name), score });
+                    }
+                }
+            }
+            MenuSection::Bookmarks => {
+                for (i, b) in self.bookmarks_module.bookmarks.iter().enumerate() {
+                    let label = format!("Bookmark: {} {}", b.name, b.path);
+                    if let Some(score) = score_match(&label, &self.search_query) {
+                        results.push(SearchResult { section: MenuSection::Bookmarks, index: i, label, score });
+                    }
+                }
+            }
+            MenuSection::SSH => {
+                for (i, h) in self.ssh_module.hosts.iter().enumerate() {
+                    let mut target = h.host.clone();
+                    if !h.user.is_empty() { target = format!("{}@{}", h.user, h.host); }
+                    let label = format!("SSH: {} {}:{}", h.name, target, h.port);
+                    if let Some(score) = score_match(&label, &self.search_query) {
+                        results.push(SearchResult { section: MenuSection::SSH, index: i, label, score });
+                    }
+                }
+            }
+            MenuSection::Scripts => {
+                for (i, s) in self.scripts_module.scripts.iter().enumerate() {
+                    let label = if s.description.is_empty() { format!("Script: {} - {}", s.name, s.command) } else { format!("Script: {} - {}", s.name, s.description) };
+                    if let Some(score) = score_match(&label, &self.search_query) {
+                        results.push(SearchResult { section: MenuSection::Scripts, index: i, label, score });
+                    }
+                }
+            }
+            MenuSection::Notifications => {
+                for (i, n) in self.notifications_module.notifications.iter().enumerate() {
+                    let label = format!("Notif: {} - {}", n.title, n.message);
+                    if let Some(score) = score_match(&label, &self.search_query) {
+                        results.push(SearchResult { section: MenuSection::Notifications, index: i, label, score });
+                    }
+                }
+            }
+            MenuSection::History => {
+                for (i, e) in self.shell_module.entries.iter().enumerate() {
+                    let label = format!("Hist: {}", e.command);
+                    if let Some(score) = score_match(&label, &self.search_query) {
+                        results.push(SearchResult { section: MenuSection::History, index: i, label, score });
+                    }
+                }
+            }
+        }
+
+        if self.search_query.is_empty() { for r in results.iter_mut() { r.score = 0; } }
+        results.sort_by_key(|r| r.score);
+        if results.len() > 500 { results.truncate(500); }
+        self.search_results = results;
+        self.search_selected = 0;
+    }
+}
+
+fn score_match(candidate: &str, query: &str) -> Option<i32> {
+    let q = query.trim().to_lowercase();
+    if q.is_empty() { return Some(0); }
+    let c = candidate.to_lowercase();
+    if let Some(idx) = c.find(&q) { return Some(idx as i32); }
+    // Simple subsequence match with positional sum
+    let mut qi = 0usize;
+    let mut sum_pos = 0i32;
+    let qb = q.as_bytes();
+    for (i, ch) in c.chars().enumerate() {
+        if qi < qb.len() && ch == qb[qi] as char { sum_pos += i as i32; qi += 1; }
+    }
+    if qi == qb.len() { Some(sum_pos) } else { None }
+}
+
+
