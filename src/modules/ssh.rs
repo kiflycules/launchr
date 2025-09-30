@@ -156,32 +156,38 @@ impl SSHModule {
         // Refresh processes
         self.system.refresh_processes(ProcessesToUpdate::All, false);
 
-        // Build a set of detected sessions by scanning running ssh processes
-        #[cfg(windows)]
-        let ssh_name = "ssh.exe";
-        #[cfg(unix)]
-        let ssh_name = "ssh";
-
+        // Build a set of detected sessions by scanning processes whose command contains an ssh invocation
         let mut detected: Vec<(String, String)> = Vec::new(); // (name, host)
 
         for (_pid, proc) in self.system.processes() {
-            let name = proc.name().to_string_lossy();
-            if name != ssh_name { continue; }
-            let cmdline = proc
+            let tokens: Vec<String> = proc
                 .cmd()
                 .iter()
                 .map(|s| s.to_string_lossy().into_owned())
-                .collect::<Vec<String>>()
-                .join(" ");
+                .collect();
+
+            if tokens.is_empty() { continue; }
+
+            // Consider this process if any token is 'ssh' or ends with '/ssh'
+            let has_ssh_token = tokens.iter().any(|t| t == "ssh" || t.ends_with("/ssh"));
+            if !has_ssh_token { continue; }
 
             for h in &self.hosts {
                 let target = if h.user.is_empty() { h.host.clone() } else { format!("{}@{}", h.user, h.host) };
-                let port_flag = format!("-p {}", h.port);
-                if cmdline.contains(&target) || cmdline.contains(&h.host) {
-                    // Optional but helpful: ensure port matches if present
-                    if cmdline.contains(&port_flag) || !cmdline.contains("-p ") {
-                        detected.push((h.name.clone(), h.host.clone()));
+                let mentions_target = tokens.iter().any(|t| t.contains(&target) || t == &h.host);
+
+                if !mentions_target { continue; }
+
+                // If a port is specified, check '-p <port>' in tokens; otherwise accept
+                let mut port_ok = true;
+                if let Some(p_idx) = tokens.iter().position(|t| t == "-p") {
+                    if let Some(p_val) = tokens.get(p_idx + 1) {
+                        port_ok = *p_val == h.port.to_string();
                     }
+                }
+
+                if port_ok {
+                    detected.push((h.name.clone(), h.host.clone()));
                 }
             }
         }
