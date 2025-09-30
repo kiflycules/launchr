@@ -63,9 +63,9 @@ scripts = [
 ```
 
 You can also add entries in-app:
-- Bookmarks: `n` then `name|path|type` (type: `file`|`directory`|`url`)
+- Bookmarks: `n` then `name|path|type`
 - SSH: `n` then `name|user@host:port`
-- Scripts: `n` then `name|command[|description]`
+- Scripts: `n` then `name|command|description`
 
 ### Notes
 - Uses `sysinfo` for processes, `which` for PATH resolution, and `crossterm`/`ratatui` for TUI.
