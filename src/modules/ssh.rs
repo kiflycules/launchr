@@ -51,12 +51,13 @@ impl SSHModule {
         #[cfg(unix)]
         {
             let target = if host.user.is_empty() { host.host.clone() } else { format!("{}@{}", host.user, host.host) };
-            let ssh_args = vec!["ssh", "-p", &host.port.to_string(), &target];
-            let terminal_emulators = vec![
-                ("gnome-terminal", { let mut v = vec!["--"]; v.extend(ssh_args.clone()); v }),
-                ("xterm", { let mut v = vec!["-e"]; v.extend(ssh_args.clone()); v }),
-                ("konsole", { let mut v = vec!["-e"]; v.extend(ssh_args.clone()); v }),
-                ("alacritty", { let mut v = vec!["-e"]; v.extend(ssh_args.clone()); v }),
+            let port_s = host.port.to_string();
+            let ssh_args: Vec<String> = vec!["ssh".into(), "-p".into(), port_s.clone(), target.clone()];
+            let terminal_emulators: Vec<(&str, Vec<String>)> = vec![
+                ("gnome-terminal", { let mut v: Vec<String> = vec!["--".into()]; v.extend(ssh_args.clone()); v }),
+                ("xterm", { let mut v: Vec<String> = vec!["-e".into()]; v.extend(ssh_args.clone()); v }),
+                ("konsole", { let mut v: Vec<String> = vec!["-e".into()]; v.extend(ssh_args.clone()); v }),
+                ("alacritty", { let mut v: Vec<String> = vec!["-e".into()]; v.extend(ssh_args.clone()); v }),
                 ("kitty", ssh_args.clone()),
             ];
             let mut connected = false;
@@ -68,7 +69,7 @@ impl SSHModule {
                 }
             }
             if !connected {
-                if let Ok(child) = Command::new("ssh").args(["-p", &host.port.to_string(), &target]).spawn() {
+                if let Ok(child) = Command::new("ssh").args(["-p", port_s.as_str(), target.as_str()]).spawn() {
                     session_pid = child.id().into();
                 }
             }
@@ -77,7 +78,8 @@ impl SSHModule {
         #[cfg(windows)]
         {
             let target = if host.user.is_empty() { host.host.clone() } else { format!("{}@{}", host.user, host.host) };
-            if let Ok(child) = Command::new("cmd").args(&["/C", "start", "ssh", "-p", &host.port.to_string(), &target]).spawn() {
+            let port_s = host.port.to_string();
+            if let Ok(child) = Command::new("cmd").args(&["/C", "start", "ssh", "-p", &port_s, &target]).spawn() {
                 session_pid = child.id().into();
             }
         }
