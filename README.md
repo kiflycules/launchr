@@ -94,7 +94,7 @@ You can also add entries in-app:
 - Scans configurable search paths for Git repositories (default: ~/Projects, ~/Documents/GitHub, etc.)
 - Displays repository status: clean, modified, ahead, behind
 - Shows current branch, uncommitted changes count, and last commit message
-- Opens repository in available editor (code, subl, atom, vim, etc.)
+- Opens repository in available editor (nvim, nano, code etc.)
 - Requires Git CLI installed
 
 **Network Module**

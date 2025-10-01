@@ -216,7 +216,7 @@ impl GitModule {
         let repo = &self.repos[index];
         
         // Try common editors
-        let editors = vec!["code", "subl", "atom", "vim", "nano", "emacs"];
+        let editors = vec!["code", "subl", "atom", "nvim", "vim", "nano", "emacs"];
         
         for editor in editors {
             if Command::new(editor)
