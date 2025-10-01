@@ -649,7 +649,7 @@ impl App {
                 for (i, e) in self.clipboard_module.entries.iter().enumerate() {
                     let label = format!("Clip: {} ({})", e.content, e.content_type);
                     if let Some(score) = score_match(&label, &self.search_query) {
-                        results.push(SearchResult { section: MenuSection::Clipboard, index: i, label, score });
+                        results.push(SearchResult { section: MenuSection::Clipboard, index: i, label: label.clone(), score });
                     }
                 }
             }
