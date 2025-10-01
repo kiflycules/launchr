@@ -68,6 +68,12 @@ ssh_hosts = [
 scripts = [
   { name = "List", command = "ls -la", description = "List current dir" },
 ]
+
+git_search_paths = [
+  "~/Projects",
+  "~/Documents/GitHub",
+  "~/code",
+]
 ```
 
 You can also add entries in-app:

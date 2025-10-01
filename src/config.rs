@@ -31,6 +31,8 @@ pub struct ConfigFile {
     pub bookmarks: Vec<BookmarkConfig>,
     pub ssh_hosts: Vec<SSHHostConfig>,
     pub scripts: Vec<ScriptConfig>,
+    #[serde(default)]
+    pub git_search_paths: Vec<String>,
 }
 
 #[derive(Clone, Debug)]
@@ -39,6 +41,7 @@ pub struct Config {
     pub bookmarks: Vec<BookmarkConfig>,
     pub ssh_hosts: Vec<SSHHostConfig>,
     pub scripts: Vec<ScriptConfig>,
+    pub git_search_paths: Vec<String>,
 }
 
 impl Config {
@@ -52,11 +55,22 @@ impl Config {
         }
         let content = fs::read_to_string(&path).with_context(|| format!("Reading {:?}", &path))?;
         let cfg: ConfigFile = toml::from_str(&content).with_context(|| "Parsing config TOML")?;
-        Ok(Self { path, bookmarks: cfg.bookmarks, ssh_hosts: cfg.ssh_hosts, scripts: cfg.scripts })
+        Ok(Self { 
+            path, 
+            bookmarks: cfg.bookmarks, 
+            ssh_hosts: cfg.ssh_hosts, 
+            scripts: cfg.scripts,
+            git_search_paths: cfg.git_search_paths,
+        })
     }
 
     fn save(&self) -> Result<()> {
-        let cfg = ConfigFile { bookmarks: self.bookmarks.clone(), ssh_hosts: self.ssh_hosts.clone(), scripts: self.scripts.clone() };
+        let cfg = ConfigFile { 
+            bookmarks: self.bookmarks.clone(), 
+            ssh_hosts: self.ssh_hosts.clone(), 
+            scripts: self.scripts.clone(),
+            git_search_paths: self.git_search_paths.clone(),
+        };
         let toml = toml::to_string_pretty(&cfg)?;
         if let Some(parent) = self.path.parent() { fs::create_dir_all(parent)?; }
         fs::write(&self.path, toml)?;

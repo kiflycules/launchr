@@ -21,17 +21,33 @@ pub struct GitModule {
 }
 
 impl GitModule {
-    pub fn new() -> Self {
+    pub fn new(config_paths: &[String]) -> Self {
         let mut search_paths = vec![];
         
-        // Add common project directories
-        if let Some(home) = dirs::home_dir() {
-            search_paths.push(home.join("Projects"));
-            search_paths.push(home.join("projects"));
-            search_paths.push(home.join("Documents").join("GitHub"));
-            search_paths.push(home.join("repos"));
-            search_paths.push(home.join("src"));
-            search_paths.push(home.join("code"));
+        // Use configured paths if provided
+        if !config_paths.is_empty() {
+            for path_str in config_paths {
+                let path = if path_str.starts_with("~/") {
+                    if let Some(home) = dirs::home_dir() {
+                        home.join(&path_str[2..])
+                    } else {
+                        PathBuf::from(path_str)
+                    }
+                } else {
+                    PathBuf::from(path_str)
+                };
+                search_paths.push(path);
+            }
+        } else {
+            // Use default paths if none configured
+            if let Some(home) = dirs::home_dir() {
+                search_paths.push(home.join("Projects"));
+                search_paths.push(home.join("projects"));
+                search_paths.push(home.join("Documents").join("GitHub"));
+                search_paths.push(home.join("repos"));
+                search_paths.push(home.join("src"));
+                search_paths.push(home.join("code"));
+            }
         }
         
         Self {

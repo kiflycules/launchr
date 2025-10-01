@@ -89,7 +89,7 @@ impl App {
         let bookmarks_module = BookmarksModule::new(&config);
         let clipboard_module = ClipboardModule::new();
         let docker_module = DockerModule::new();
-        let git_module = GitModule::new();
+        let git_module = GitModule::new(&config.git_search_paths);
         let network_module = NetworkModule::new();
         let ssh_module = SSHModule::new(&config);
         let scripts_module = ScriptsModule::new(&config);
