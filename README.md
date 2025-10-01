@@ -121,6 +121,7 @@ You can also add entries in-app:
 
 **Scratchpad Module**
 - Quick note-taking with automatic editor detection (checks for VSCode, Sublime Text, Notepad++, vim, etc.)
+- Opens editors in a new window/terminal - launchr remains responsive and non-blocking
 - Auto-generates timestamped filenames or use custom names
 - Search notes by filename or content
 - Copy note contents to clipboard

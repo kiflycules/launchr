@@ -104,41 +104,86 @@ impl ScratchpadModule {
 
     pub fn open_in_editor(&self, path: &PathBuf) -> Result<()> {
         let editor = self.get_editor();
+        let path_str = path.to_str().unwrap_or("");
         
-        #[cfg(unix)]
-        {
-            Command::new(&editor)
-                .arg(path)
-                .spawn()
-                .map_err(|e| anyhow::anyhow!("Failed to open editor '{}': {}. Set EDITOR environment variable or configure preferred_editor.", editor, e))?;
-        }
-
         #[cfg(windows)]
         {
-            let result = if editor.to_lowercase().contains("notepad") {
+            // On Windows, always use 'start' to open in a new window
+            // This prevents blocking and UI conflicts
+            Command::new("cmd")
+                .args(&["/C", "start", &editor, path_str])
+                .spawn()
+                .map_err(|e| anyhow::anyhow!(
+                    "Failed to open editor '{}': {}.\n\nTips:\n- Set EDITOR environment variable\n- Configure preferred_editor in config\n- Ensure editor is in PATH",
+                    editor, e
+                ))?;
+        }
+
+        #[cfg(unix)]
+        {
+            // On Unix, try to detect and use the appropriate terminal emulator
+            let term_editors = ["code", "subl", "atom", "gedit", "kate"];
+            
+            if term_editors.iter().any(|&e| editor.contains(e)) {
+                // GUI editors can be spawned directly
                 Command::new(&editor)
                     .arg(path)
                     .spawn()
+                    .map_err(|e| anyhow::anyhow!("Failed to open editor '{}': {}", editor, e))?;
             } else {
-                // Try direct spawn first
-                let direct = Command::new(&editor)
-                    .arg(path)
-                    .spawn();
+                // Terminal editors need to be opened in a new terminal window
+                let terminals = [
+                    ("x-terminal-emulator", vec!["-e", &editor, path_str]),
+                    ("gnome-terminal", vec!["--", &editor, path_str]),
+                    ("konsole", vec!["-e", &editor, path_str]),
+                    ("xterm", vec!["-e", &editor, path_str]),
+                    ("alacritty", vec!["-e", &editor, path_str]),
+                    ("kitty", vec!["-e", &editor, path_str]),
+                ];
                 
-                if direct.is_ok() {
-                    direct
-                } else {
-                    // Fallback to cmd start for stubborn editors
-                    Command::new("cmd")
-                        .args(&["/C", "start", "", &editor, path.to_str().unwrap_or("")])
+                let mut spawned = false;
+                for (term, args) in &terminals {
+                    if let Ok(_) = Command::new(term)
+                        .args(args)
                         .spawn()
+                    {
+                        spawned = true;
+                        break;
+                    }
                 }
-            };
-            
-            result.map_err(|e| anyhow::anyhow!(
-                "Failed to open editor '{}': {}.\n\nTips:\n- Set EDITOR environment variable\n- Configure preferred_editor in config\n- Ensure editor is in PATH",
-                editor, e
-            ))?;
+                
+                if !spawned {
+                    return Err(anyhow::anyhow!(
+                        "Could not find a terminal emulator to open '{}'. \
+                        For terminal editors like vim/nano, launchr needs to spawn a new terminal window. \
+                        Install gnome-terminal, konsole, xterm, alacritty, or kitty, \
+                        or use a GUI editor (code, subl, gedit, etc.)",
+                        editor
+                    ));
+                }
+            }
+        }
+
+        #[cfg(target_os = "macos")]
+        {
+            // macOS: use 'open -a' for GUI apps or spawn terminal for terminal editors
+            if editor.contains("vim") || editor.contains("nano") || editor.contains("emacs") {
+                // Open terminal editors in a new Terminal.app window
+                let script = format!("tell application \"Terminal\" to do script \"{} {}\"", editor, path_str);
+                Command::new("osascript")
+                    .arg("-e")
+                    .arg(&script)
+                    .spawn()
+                    .map_err(|e| anyhow::anyhow!("Failed to open editor in terminal: {}", e))?;
+            } else {
+                // GUI editors can use 'open'
+                Command::new("open")
+                    .arg("-a")
+                    .arg(&editor)
+                    .arg(path)
+                    .spawn()
+                    .map_err(|e| anyhow::anyhow!("Failed to open editor '{}': {}", editor, e))?;
+            }
         }
 
         Ok(())
@@ -312,16 +357,18 @@ impl ScratchpadModule {
         #[cfg(target_os = "windows")]
         {
             // Check for common Windows editors
+            // Prefer GUI editors that open in new windows
             let editors = [
+                "notepad++.exe",      // Notepad++ (best default for Windows)
                 "code.cmd",           // VS Code
                 "code",               // VS Code alternate
                 "subl.exe",           // Sublime Text
                 "sublime_text.exe",   // Sublime Text alternate
-                "notepad++.exe",      // Notepad++
                 "atom.exe",           // Atom
-                "vim.exe",            // Vim for Windows
-                "gvim.exe",           // GVim
+                "gvim.exe",           // GVim (GUI vim)
                 "notepad.exe",        // Windows Notepad (fallback)
+                "nvim-qt.exe",        // Neovim GUI
+                "vim.exe",            // Vim for Windows (terminal)
             ];
             
             for editor in &editors {
