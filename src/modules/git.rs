@@ -61,6 +61,13 @@ impl GitModule {
         let search_paths = self.search_paths.clone();
         for search_path in &search_paths {
             if search_path.exists() {
+                // If the configured path itself is a repo, record it directly
+                if search_path.join(".git").exists() {
+                    if let Some(repo) = self.analyze_repo(search_path) {
+                        self.repos.push(repo);
+                    }
+                    continue;
+                }
                 self.scan_directory(search_path, 3)?; // Max depth of 3
             }
         }
