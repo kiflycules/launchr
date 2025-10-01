@@ -1,5 +1,9 @@
 pub mod apps;
 pub mod bookmarks;
+pub mod clipboard;
+pub mod docker;
+pub mod git;
+pub mod network;
 pub mod notifications;
 pub mod scripts;
 pub mod ssh;

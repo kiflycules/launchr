@@ -61,10 +61,20 @@ async fn run_app<B: ratatui::backend::Backend>(
                         KeyCode::Char('1') => app.current_section = MenuSection::Dashboard,
                         KeyCode::Char('2') => app.current_section = MenuSection::Apps,
                         KeyCode::Char('3') => app.current_section = MenuSection::Bookmarks,
-                        KeyCode::Char('4') => app.current_section = MenuSection::SSH,
-                        KeyCode::Char('5') => app.current_section = MenuSection::Scripts,
-                        KeyCode::Char('6') => app.current_section = MenuSection::Notifications,
-                        KeyCode::Char('7') => app.current_section = MenuSection::History,
+                        KeyCode::Char('4') => app.current_section = MenuSection::Clipboard,
+                        KeyCode::Char('5') => app.current_section = MenuSection::Docker,
+                        KeyCode::Char('6') => app.current_section = MenuSection::Network,
+                        KeyCode::Char('7') => app.current_section = MenuSection::SSH,
+                        KeyCode::Char('8') => app.current_section = MenuSection::Scripts,
+                        KeyCode::Char('9') => app.current_section = MenuSection::Notifications,
+                        KeyCode::Char('0') => {
+                            // Toggle between Git and History
+                            app.current_section = if app.current_section == MenuSection::Git {
+                                MenuSection::History
+                            } else {
+                                MenuSection::Git
+                            };
+                        }
                         KeyCode::Up | KeyCode::Char('k') => app.previous_item(),
                         KeyCode::Down | KeyCode::Char('j') => app.next_item(),
                         KeyCode::PageUp => app.page_up(),
@@ -83,10 +93,50 @@ async fn run_app<B: ratatui::backend::Backend>(
                         KeyCode::Char('s') => app.stop_selected(),
                         KeyCode::Char('t') => app.toggle_detail(),
                         KeyCode::Char('S') => {
-                            if let Err(e) = app.schedule_selected_script().await { app.report_error("Schedule failed", e); }
+                            if app.current_section == MenuSection::Git {
+                                app.status_message = "Scanning for git repositories...".to_string();
+                                if let Err(e) = app.git_module.scan_repositories() {
+                                    app.report_error("Scan failed", e);
+                                } else {
+                                    app.status_message = format!("Found {} repositories", app.git_module.repos.len());
+                                }
+                            } else {
+                                if let Err(e) = app.schedule_selected_script().await { app.report_error("Schedule failed", e); }
+                            }
                         }
                         KeyCode::Char('x') => app.disconnect_latest_session(),
+                        KeyCode::Char('v') => {
+                            if app.current_section == MenuSection::Docker {
+                                // Cycle through Docker views
+                                use crate::modules::docker::DockerView;
+                                app.docker_module.current_view = match app.docker_module.current_view {
+                                    DockerView::Containers => DockerView::Images,
+                                    DockerView::Images => DockerView::Containers,
+                                    _ => DockerView::Containers,
+                                };
+                                app.selected_index = 0;
+                                if let Err(e) = app.refresh().await { app.report_error("Refresh failed", e); }
+                            } else if app.current_section == MenuSection::Network {
+                                // Cycle through Network views
+                                use crate::modules::network::NetworkView;
+                                app.network_module.current_view = match app.network_module.current_view {
+                                    NetworkView::Connections => NetworkView::Interfaces,
+                                    NetworkView::Interfaces => NetworkView::Ports,
+                                    NetworkView::Ports => NetworkView::Connections,
+                                };
+                                app.selected_index = 0;
+                                if let Err(e) = app.refresh().await { app.report_error("Refresh failed", e); }
+                            }
+                        }
+                        KeyCode::Char('f') => {
+                            if app.current_section == MenuSection::Network {
+                                // Toggle ESTABLISHED filter for network connections
+                                app.network_module.toggle_filter("ESTABLISHED");
+                                if let Err(e) = app.refresh().await { app.report_error("Refresh failed", e); }
+                            }
+                        }
                         KeyCode::Tab => app.next_section(),
+                        KeyCode::BackTab => app.previous_section(),
                         KeyCode::Esc => app.cancel_input(),
                         _ => {}
                     },

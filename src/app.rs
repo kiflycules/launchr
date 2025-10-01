@@ -5,6 +5,10 @@ use crate::config::Config;
 use crate::modules::{
     apps::AppsModule,
     bookmarks::BookmarksModule,
+    clipboard::ClipboardModule,
+    docker::DockerModule,
+    git::GitModule,
+    network::NetworkModule,
     notifications::NotificationsModule,
     scripts::ScriptsModule,
     ssh::SSHModule,
@@ -16,10 +20,14 @@ pub enum MenuSection {
     Dashboard,
     Apps,
     Bookmarks,
+    Clipboard,
+    Docker,
+    Network,
     SSH,
     Scripts,
     Notifications,
     History,
+    Git,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -44,6 +52,10 @@ pub struct App {
 
     pub apps_module: AppsModule,
     pub bookmarks_module: BookmarksModule,
+    pub clipboard_module: ClipboardModule,
+    pub docker_module: DockerModule,
+    pub git_module: GitModule,
+    pub network_module: NetworkModule,
     pub ssh_module: SSHModule,
     pub scripts_module: ScriptsModule,
     pub notifications_module: NotificationsModule,
@@ -75,6 +87,10 @@ impl App {
         let apps_module = AppsModule::new();
 
         let bookmarks_module = BookmarksModule::new(&config);
+        let clipboard_module = ClipboardModule::new();
+        let docker_module = DockerModule::new();
+        let git_module = GitModule::new();
+        let network_module = NetworkModule::new();
         let ssh_module = SSHModule::new(&config);
         let scripts_module = ScriptsModule::new(&config);
         let notifications_module = NotificationsModule::new();
@@ -93,6 +109,10 @@ impl App {
             last_refresh: Instant::now(),
             apps_module,
             bookmarks_module,
+            clipboard_module,
+            docker_module,
+            git_module,
+            network_module,
             ssh_module,
             scripts_module,
             notifications_module,
@@ -152,6 +172,27 @@ impl App {
                     self.notifications_module.push("SSH Connected", &host_name, "info");
                 }
             }
+            MenuSection::Clipboard => {
+                if self.selected_index < self.clipboard_module.entries.len() {
+                    if let Err(e) = self.clipboard_module.copy_to_clipboard(self.selected_index) {
+                        self.status_message = format!("Failed to copy to clipboard: {}", e);
+                    } else {
+                        self.status_message = "Copied to clipboard".to_string();
+                        self.notifications_module.push("Clipboard", "Content copied to clipboard", "info");
+                    }
+                }
+            }
+            MenuSection::Docker => {
+                if self.selected_index < self.docker_module.containers.len() {
+                    if let Err(e) = self.docker_module.exec_into_container(self.selected_index) {
+                        self.status_message = format!("Failed to exec into container: {}", e);
+                    } else {
+                        let container_name = &self.docker_module.containers[self.selected_index].name;
+                        self.status_message = format!("Executed into container: {}", container_name);
+                        self.notifications_module.push("Docker", &format!("Executed into {}", container_name), "info");
+                    }
+                }
+            }
             MenuSection::Scripts => {
                 if self.selected_index < self.scripts_module.scripts.len() {
                     let script_name = self.scripts_module.scripts[self.selected_index].name.clone();
@@ -167,6 +208,21 @@ impl App {
                     self.status_message = format!("Ran: {}", cmd);
                     self.notifications_module.push("History Ran", &cmd, "info");
                 }
+            }
+            MenuSection::Git => {
+                if self.selected_index < self.git_module.repos.len() {
+                    if let Err(e) = self.git_module.open_in_editor(self.selected_index) {
+                        self.status_message = format!("Failed to open repository: {}", e);
+                    } else {
+                        let repo_name = &self.git_module.repos[self.selected_index].name;
+                        self.status_message = format!("Opened repository: {}", repo_name);
+                        self.notifications_module.push("Git", &format!("Opened {}", repo_name), "info");
+                    }
+                }
+            }
+            MenuSection::Network => {
+                // Network view doesn't have a default action on Enter
+                self.status_message = "Use 'v' to switch views, 'f' to filter".to_string();
             }
             _ => {}
         }
@@ -200,9 +256,37 @@ impl App {
                 self.apps_module.refresh_running_processes().await?;
                 self.status_message = "Refreshed dashboard".to_string();
             }
+            MenuSection::Clipboard => {
+                if let Err(e) = self.clipboard_module.refresh() {
+                    self.status_message = format!("Failed to refresh clipboard: {}", e);
+                } else {
+                    self.status_message = "Refreshed clipboard".to_string();
+                }
+            }
+            MenuSection::Docker => {
+                if let Err(e) = self.docker_module.refresh() {
+                    self.status_message = format!("Failed to refresh docker: {}", e);
+                } else {
+                    self.status_message = "Refreshed docker containers/images".to_string();
+                }
+            }
             MenuSection::History => {
                 self.shell_module.refresh();
                 self.status_message = "Refreshed history".to_string();
+            }
+            MenuSection::Git => {
+                if let Err(e) = self.git_module.refresh() {
+                    self.status_message = format!("Failed to refresh git: {}", e);
+                } else {
+                    self.status_message = "Refreshed git repositories".to_string();
+                }
+            }
+            MenuSection::Network => {
+                if let Err(e) = self.network_module.refresh() {
+                    self.status_message = format!("Failed to refresh network: {}", e);
+                } else {
+                    self.status_message = "Refreshed network information".to_string();
+                }
             }
             _ => {}
         }
@@ -290,11 +374,32 @@ impl App {
         self.current_section = match self.current_section {
             MenuSection::Dashboard => MenuSection::Apps,
             MenuSection::Apps => MenuSection::Bookmarks,
-            MenuSection::Bookmarks => MenuSection::SSH,
+            MenuSection::Bookmarks => MenuSection::Clipboard,
+            MenuSection::Clipboard => MenuSection::Docker,
+            MenuSection::Docker => MenuSection::Network,
+            MenuSection::Network => MenuSection::SSH,
             MenuSection::SSH => MenuSection::Scripts,
             MenuSection::Scripts => MenuSection::Notifications,
             MenuSection::Notifications => MenuSection::History,
-            MenuSection::History => MenuSection::Dashboard,
+            MenuSection::History => MenuSection::Git,
+            MenuSection::Git => MenuSection::Dashboard,
+        };
+        self.selected_index = 0;
+    }
+
+    pub fn previous_section(&mut self) {
+        self.current_section = match self.current_section {
+            MenuSection::Dashboard => MenuSection::Git,
+            MenuSection::Apps => MenuSection::Dashboard,
+            MenuSection::Bookmarks => MenuSection::Apps,
+            MenuSection::Clipboard => MenuSection::Bookmarks,
+            MenuSection::Docker => MenuSection::Clipboard,
+            MenuSection::Network => MenuSection::Docker,
+            MenuSection::SSH => MenuSection::Network,
+            MenuSection::Scripts => MenuSection::SSH,
+            MenuSection::Notifications => MenuSection::Scripts,
+            MenuSection::History => MenuSection::Notifications,
+            MenuSection::Git => MenuSection::History,
         };
         self.selected_index = 0;
     }
@@ -409,10 +514,26 @@ impl App {
                 self.apps_module.available_apps.len() + self.apps_module.running_processes.len()
             },
             MenuSection::Bookmarks => self.bookmarks_module.bookmarks.len(),
+            MenuSection::Clipboard => self.clipboard_module.entries.len(),
+            MenuSection::Docker => {
+                match self.docker_module.current_view {
+                    crate::modules::docker::DockerView::Containers => self.docker_module.containers.len(),
+                    crate::modules::docker::DockerView::Images => self.docker_module.images.len(),
+                    _ => 0,
+                }
+            }
+            MenuSection::Network => {
+                match self.network_module.current_view {
+                    crate::modules::network::NetworkView::Connections => self.network_module.connections.len(),
+                    crate::modules::network::NetworkView::Interfaces => self.network_module.interfaces.len(),
+                    crate::modules::network::NetworkView::Ports => self.network_module.listening_ports.len(),
+                }
+            }
             MenuSection::SSH => self.ssh_module.hosts.len(),
             MenuSection::Scripts => self.scripts_module.scripts.len(),
             MenuSection::Notifications => self.notifications_module.notifications.len(),
             MenuSection::History => self.shell_module.entries.len(),
+            MenuSection::Git => self.git_module.repos.len(),
         }
     }
 
@@ -524,6 +645,22 @@ impl App {
                     }
                 }
             }
+            MenuSection::Clipboard => {
+                for (i, e) in self.clipboard_module.entries.iter().enumerate() {
+                    let label = format!("Clip: {} ({})", e.content, e.content_type);
+                    if let Some(score) = score_match(&label, &self.search_query) {
+                        results.push(SearchResult { section: MenuSection::Clipboard, index: i, label, score });
+                    }
+                }
+            }
+            MenuSection::Docker => {
+                for (i, c) in self.docker_module.containers.iter().enumerate() {
+                    let label = format!("Docker: {} - {} ({})", c.name, c.image, c.status);
+                    if let Some(score) = score_match(&label, &self.search_query) {
+                        results.push(SearchResult { section: MenuSection::Docker, index: i, label, score });
+                    }
+                }
+            }
             MenuSection::SSH => {
                 for (i, h) in self.ssh_module.hosts.iter().enumerate() {
                     let mut target = h.host.clone();
@@ -555,6 +692,22 @@ impl App {
                     let label = format!("Hist: {}", e.command);
                     if let Some(score) = score_match(&label, &self.search_query) {
                         results.push(SearchResult { section: MenuSection::History, index: i, label, score });
+                    }
+                }
+            }
+            MenuSection::Git => {
+                for (i, r) in self.git_module.repos.iter().enumerate() {
+                    let label = format!("Git: {} ({}) - {}", r.name, r.branch, r.status);
+                    if let Some(score) = score_match(&label, &self.search_query) {
+                        results.push(SearchResult { section: MenuSection::Git, index: i, label, score });
+                    }
+                }
+            }
+            MenuSection::Network => {
+                for (i, c) in self.network_module.connections.iter().enumerate() {
+                    let label = format!("Net: {} {} -> {} ({})", c.protocol, c.local_addr, c.remote_addr, c.state);
+                    if let Some(score) = score_match(&label, &self.search_query) {
+                        results.push(SearchResult { section: MenuSection::Network, index: i, label, score });
                     }
                 }
             }
