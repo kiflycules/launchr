@@ -27,12 +27,22 @@ pub struct ScriptConfig {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, Default)]
+pub struct ScratchpadConfig {
+    #[serde(default)]
+    pub editor: Option<String>,
+    #[serde(default)]
+    pub directory: Option<String>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, Default)]
 pub struct ConfigFile {
     pub bookmarks: Vec<BookmarkConfig>,
     pub ssh_hosts: Vec<SSHHostConfig>,
     pub scripts: Vec<ScriptConfig>,
     #[serde(default)]
     pub git_search_paths: Vec<String>,
+    #[serde(default)]
+    pub scratchpad: ScratchpadConfig,
 }
 
 #[derive(Clone, Debug)]
@@ -42,6 +52,8 @@ pub struct Config {
     pub ssh_hosts: Vec<SSHHostConfig>,
     pub scripts: Vec<ScriptConfig>,
     pub git_search_paths: Vec<String>,
+    pub scratchpad_editor: Option<String>,
+    pub scratchpad_directory: Option<PathBuf>,
 }
 
 impl Config {
@@ -61,6 +73,8 @@ impl Config {
             ssh_hosts: cfg.ssh_hosts, 
             scripts: cfg.scripts,
             git_search_paths: cfg.git_search_paths,
+            scratchpad_editor: cfg.scratchpad.editor,
+            scratchpad_directory: cfg.scratchpad.directory.map(PathBuf::from),
         })
     }
 
@@ -70,6 +84,10 @@ impl Config {
             ssh_hosts: self.ssh_hosts.clone(), 
             scripts: self.scripts.clone(),
             git_search_paths: self.git_search_paths.clone(),
+            scratchpad: ScratchpadConfig {
+                editor: self.scratchpad_editor.clone(),
+                directory: self.scratchpad_directory.as_ref().map(|p| p.display().to_string()),
+            },
         };
         let toml = toml::to_string_pretty(&cfg)?;
         if let Some(parent) = self.path.parent() { fs::create_dir_all(parent)?; }

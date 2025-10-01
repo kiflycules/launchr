@@ -13,6 +13,8 @@ use crate::modules::{
     scripts::ScriptsModule,
     ssh::SSHModule,
     history::ShellHistoryModule,
+    scratchpad::ScratchpadModule,
+    shell::ShellModule,
 };
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -28,6 +30,8 @@ pub enum MenuSection {
     Notifications,
     History,
     Git,
+    Scratchpad,
+    Shell,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -36,6 +40,7 @@ pub enum AppState {
     Input,
     Confirm,
     Search,
+    ShellInput,
 }
 
 pub struct App {
@@ -70,6 +75,16 @@ pub struct App {
 
     // Shell
     pub shell_module: ShellHistoryModule,
+    pub scratchpad_module: ScratchpadModule,
+    pub shell_terminal_module: ShellModule,
+    
+    // Shell input state
+    pub shell_input_buffer: String,
+    pub shell_input_cursor: usize,
+    
+    // Scratchpad search
+    pub scratchpad_search_query: String,
+    pub scratchpad_search_results: Vec<usize>,
 }
 
 #[derive(Debug, Clone)]
@@ -95,6 +110,8 @@ impl App {
         let scripts_module = ScriptsModule::new(&config);
         let notifications_module = NotificationsModule::new();
         let shell_module = ShellHistoryModule::new();
+        let scratchpad_module = ScratchpadModule::new(config.scratchpad_directory.clone(), config.scratchpad_editor.clone())?;
+        let shell_terminal_module = ShellModule::new()?;
 
         Ok(Self {
             current_section: MenuSection::Dashboard,
@@ -123,6 +140,12 @@ impl App {
             search_results: Vec::new(),
             search_selected: 0,
             shell_module,
+            scratchpad_module,
+            shell_terminal_module,
+            shell_input_buffer: String::new(),
+            shell_input_cursor: 0,
+            scratchpad_search_query: String::new(),
+            scratchpad_search_results: Vec::new(),
         })
     }
 
@@ -220,6 +243,21 @@ impl App {
                     }
                 }
             }
+            MenuSection::Scratchpad => {
+                if self.selected_index < self.scratchpad_module.notes.len() {
+                    if let Err(e) = self.scratchpad_module.open_existing(self.selected_index) {
+                        self.status_message = format!("Failed to open note: {}", e);
+                    } else {
+                        let note_name = &self.scratchpad_module.notes[self.selected_index].name;
+                        self.status_message = format!("Opened note: {}", note_name);
+                        self.notifications_module.push("Scratchpad", &format!("Opened {}", note_name), "info");
+                    }
+                }
+            }
+            MenuSection::Shell => {
+                // Shell terminal - Enter key handled separately in shell input mode
+                self.status_message = "Type commands in the shell below".to_string();
+            }
             MenuSection::Network => {
                 // Network view doesn't have a default action on Enter
                 self.status_message = "Use 'v' to switch views, 'f' to filter".to_string();
@@ -237,6 +275,7 @@ impl App {
             MenuSection::Bookmarks => "Enter bookmark (name|path|type): ".to_string(),
             MenuSection::SSH => "Enter SSH host (name|user@host:port): ".to_string(),
             MenuSection::Scripts => "Enter script (name|command): ".to_string(),
+            MenuSection::Scratchpad => "Enter note name (or leave empty for auto-name): ".to_string(),
             _ => "Enter value: ".to_string(),
         };
     }
@@ -286,6 +325,13 @@ impl App {
                     self.status_message = format!("Failed to refresh network: {}", e);
                 } else {
                     self.status_message = "Refreshed network information".to_string();
+                }
+            }
+            MenuSection::Scratchpad => {
+                if let Err(e) = self.scratchpad_module.refresh() {
+                    self.status_message = format!("Failed to refresh scratchpad: {}", e);
+                } else {
+                    self.status_message = "Refreshed scratchpad notes".to_string();
                 }
             }
             _ => {}
@@ -381,7 +427,9 @@ impl App {
             MenuSection::SSH => MenuSection::Scripts,
             MenuSection::Scripts => MenuSection::Git,
             MenuSection::Git => MenuSection::History,
-            MenuSection::History => MenuSection::Notifications,
+            MenuSection::History => MenuSection::Scratchpad,
+            MenuSection::Scratchpad => MenuSection::Shell,
+            MenuSection::Shell => MenuSection::Notifications,
             MenuSection::Notifications => MenuSection::Dashboard,
         };
         self.selected_index = 0;
@@ -399,7 +447,9 @@ impl App {
             MenuSection::Scripts => MenuSection::SSH,
             MenuSection::Git => MenuSection::Scripts,
             MenuSection::History => MenuSection::Git,
-            MenuSection::Notifications => MenuSection::History,
+            MenuSection::Scratchpad => MenuSection::History,
+            MenuSection::Shell => MenuSection::Scratchpad,
+            MenuSection::Notifications => MenuSection::Shell,
         };
         self.selected_index = 0;
     }
@@ -428,6 +478,28 @@ impl App {
                 self.status_message = "Script added".to_string();
                 self.notifications_module.push("Script Added", &input, "info");
             }
+            MenuSection::Scratchpad => {
+                // Check if this is a rename, search, or export action
+                if self.input_prompt.starts_with("Rename") || self.input_prompt.starts_with("Search") || self.input_prompt.starts_with("Export") {
+                    self.execute_scratchpad_action(input)?;
+                } else {
+                    // Create new note
+                    let name = if input.trim().is_empty() { None } else { Some(input.clone()) };
+                    if let Err(e) = self.scratchpad_module.new_and_open(name) {
+                        self.status_message = format!("Failed to create note: {}", e);
+                    } else {
+                        self.status_message = "Note created and opened".to_string();
+                        self.notifications_module.push("Scratchpad", "New note created", "info");
+                        self.scratchpad_module.refresh()?;
+                    }
+                }
+            }
+            MenuSection::Shell => {
+                // Check if this is a search action
+                if self.input_prompt.starts_with("Search shell") {
+                    self.execute_shell_action(input)?;
+                }
+            }
             _ => {}
         }
         self.cancel_input();
@@ -450,6 +522,14 @@ impl App {
                 self.scripts_module.delete(self.selected_index);
                 self.status_message = "Script deleted".to_string();
                 self.notifications_module.push("Script Deleted", "", "warning");
+            }
+            MenuSection::Scratchpad => {
+                if let Err(e) = self.scratchpad_module.delete(self.selected_index) {
+                    self.status_message = format!("Failed to delete note: {}", e);
+                } else {
+                    self.status_message = "Note deleted".to_string();
+                    self.notifications_module.push("Note Deleted", "", "warning");
+                }
             }
             _ => {}
         }
@@ -534,6 +614,8 @@ impl App {
             MenuSection::Notifications => self.notifications_module.notifications.len(),
             MenuSection::History => self.shell_module.entries.len(),
             MenuSection::Git => self.git_module.repos.len(),
+            MenuSection::Scratchpad => self.scratchpad_module.notes.len(),
+            MenuSection::Shell => 0, // Shell has its own UI, no list
         }
     }
 
@@ -711,6 +793,17 @@ impl App {
                     }
                 }
             }
+            MenuSection::Scratchpad => {
+                for (i, note) in self.scratchpad_module.notes.iter().enumerate() {
+                    let label = format!("Note: {} ({})", note.name, note.modified_at.format("%Y-%m-%d %H:%M"));
+                    if let Some(score) = score_match(&label, &self.search_query) {
+                        results.push(SearchResult { section: MenuSection::Scratchpad, index: i, label, score });
+                    }
+                }
+            }
+            MenuSection::Shell => {
+                // Shell terminal doesn't have searchable items
+            }
         }
 
         if self.search_query.is_empty() { for r in results.iter_mut() { r.score = 0; } }
@@ -734,6 +827,157 @@ fn score_match(candidate: &str, query: &str) -> Option<i32> {
         if qi < qb.len() && ch == qb[qi] as char { sum_pos += i as i32; qi += 1; }
     }
     if qi == qb.len() { Some(sum_pos) } else { None }
+}
+
+impl App {
+    // Shell terminal methods
+    pub fn open_shell_input(&mut self) {
+        self.state = AppState::ShellInput;
+        self.shell_input_buffer.clear();
+        self.shell_input_cursor = 0;
+    }
+    
+    pub fn shell_input_char(&mut self, c: char) {
+        self.shell_input_buffer.insert(self.shell_input_cursor, c);
+        self.shell_input_cursor += 1;
+    }
+    
+    pub fn shell_input_backspace(&mut self) {
+        if self.shell_input_cursor > 0 {
+            self.shell_input_buffer.remove(self.shell_input_cursor - 1);
+            self.shell_input_cursor -= 1;
+        }
+    }
+    
+    pub fn shell_input_move_left(&mut self) {
+        if self.shell_input_cursor > 0 {
+            self.shell_input_cursor -= 1;
+        }
+    }
+    
+    pub fn shell_input_move_right(&mut self) {
+        if self.shell_input_cursor < self.shell_input_buffer.len() {
+            self.shell_input_cursor += 1;
+        }
+    }
+    
+    pub fn close_shell_input(&mut self) {
+        self.state = AppState::Normal;
+        self.shell_input_buffer.clear();
+        self.shell_input_cursor = 0;
+    }
+    
+    pub async fn execute_shell_command(&mut self) -> Result<()> {
+        let command = self.shell_input_buffer.clone();
+        self.close_shell_input();
+        
+        if command.trim().is_empty() {
+            return Ok(());
+        }
+        
+        let result = self.shell_terminal_module.execute_command(&command).await?;
+        
+        if result.output.contains("[exit requested]") {
+            self.status_message = "Shell exit requested".to_string();
+        } else if result.output.contains("[cleared]") {
+            self.status_message = "Shell cleared".to_string();
+        } else {
+            self.status_message = format!("Executed: {}", command);
+        }
+        
+        Ok(())
+    }
+    
+    // Scratchpad methods
+    pub fn scratchpad_copy_to_clipboard(&mut self) -> Result<()> {
+        if self.selected_index < self.scratchpad_module.notes.len() {
+            let content = self.scratchpad_module.copy_to_clipboard(self.selected_index)?;
+            self.status_message = format!("Copied {} bytes to clipboard", content.len());
+            self.notifications_module.push("Scratchpad", "Copied to clipboard", "info");
+        }
+        Ok(())
+    }
+    
+    pub fn scratchpad_export(&mut self) {
+        if self.selected_index < self.scratchpad_module.notes.len() {
+            self.state = AppState::Input;
+            self.input_buffer.clear();
+            self.input_cursor = 0;
+            self.input_prompt = "Export note to path: ".to_string();
+        }
+    }
+    
+    pub fn scratchpad_rename(&mut self) {
+        if self.selected_index < self.scratchpad_module.notes.len() {
+            self.state = AppState::Input;
+            let current_name = &self.scratchpad_module.notes[self.selected_index].name;
+            self.input_buffer = current_name.clone();
+            self.input_cursor = self.input_buffer.len();
+            self.input_prompt = "Rename note to: ".to_string();
+        }
+    }
+    
+    pub fn scratchpad_search(&mut self) {
+        self.state = AppState::Input;
+        self.input_buffer.clear();
+        self.input_cursor = 0;
+        self.input_prompt = "Search notes: ".to_string();
+    }
+    
+    pub fn execute_scratchpad_action(&mut self, input: String) -> Result<()> {
+        if self.input_prompt.starts_with("Rename") {
+            // Rename action
+            if let Err(e) = self.scratchpad_module.rename(self.selected_index, &input) {
+                self.status_message = format!("Failed to rename: {}", e);
+            } else {
+                self.status_message = format!("Renamed to: {}", input);
+                self.notifications_module.push("Scratchpad", &format!("Renamed to {}", input), "info");
+            }
+        } else if self.input_prompt.starts_with("Search") {
+            // Search action
+            self.scratchpad_search_query = input.clone();
+            self.scratchpad_search_results = self.scratchpad_module.search(&input);
+            self.status_message = format!("Found {} matches", self.scratchpad_search_results.len());
+            if !self.scratchpad_search_results.is_empty() {
+                self.selected_index = self.scratchpad_search_results[0];
+            }
+        } else if self.input_prompt.starts_with("Export") {
+            // Export action
+            let dest_path = std::path::PathBuf::from(input.clone());
+            if let Err(e) = self.scratchpad_module.export_to_path(self.selected_index, &dest_path) {
+                self.status_message = format!("Failed to export: {}", e);
+            } else {
+                self.status_message = format!("Exported to: {}", input);
+                self.notifications_module.push("Scratchpad", &format!("Exported to {}", input), "info");
+            }
+        }
+        Ok(())
+    }
+    
+    // Shell history methods
+    pub fn shell_search_history(&mut self) {
+        self.state = AppState::Input;
+        self.input_buffer.clear();
+        self.input_cursor = 0;
+        self.input_prompt = "Search shell history: ".to_string();
+    }
+    
+    pub fn shell_clear_history(&mut self) {
+        self.shell_terminal_module.clear_history();
+        self.status_message = "Shell history cleared".to_string();
+        self.notifications_module.push("Shell", "History cleared", "info");
+    }
+    
+    pub fn execute_shell_action(&mut self, input: String) -> Result<()> {
+        if self.input_prompt.starts_with("Search shell") {
+            let results = self.shell_terminal_module.search_history(&input);
+            self.status_message = format!("Found {} commands matching \"{}\"", results.len(), input);
+            if !results.is_empty() {
+                self.notifications_module.push("Shell", &format!("Found {} matches", results.len()), "info");
+            }
+        }
+        Ok(())
+    }
 }
 
 

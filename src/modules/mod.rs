@@ -8,5 +8,5 @@ pub mod notifications;
 pub mod scripts;
 pub mod ssh;
 pub mod history;
-
-
+pub mod scratchpad;
+pub mod shell;

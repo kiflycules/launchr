@@ -67,14 +67,10 @@ async fn run_app<B: ratatui::backend::Backend>(
                         KeyCode::Char('7') => app.current_section = MenuSection::SSH,
                         KeyCode::Char('8') => app.current_section = MenuSection::Scripts,
                         KeyCode::Char('9') => app.current_section = MenuSection::Git,
-                        KeyCode::Char('0') => {
-                            // Toggle between History and Notifications
-                            app.current_section = if app.current_section == MenuSection::History {
-                                MenuSection::Notifications
-                            } else {
-                                MenuSection::History
-                            };
-                        }
+                        KeyCode::Char('0') => app.current_section = MenuSection::History,
+                        KeyCode::Char('-') => app.current_section = MenuSection::Scratchpad,
+                        KeyCode::Char('=') => app.current_section = MenuSection::Shell,
+                        KeyCode::Char('[') => app.current_section = MenuSection::Notifications,
                         KeyCode::Up | KeyCode::Char('k') => app.previous_item(),
                         KeyCode::Down | KeyCode::Char('j') => app.next_item(),
                         KeyCode::PageUp => app.page_up(),
@@ -133,6 +129,41 @@ async fn run_app<B: ratatui::backend::Backend>(
                                 // Toggle ESTABLISHED filter for network connections
                                 app.network_module.toggle_filter("ESTABLISHED");
                                 if let Err(e) = app.refresh().await { app.report_error("Refresh failed", e); }
+                            } else if app.current_section == MenuSection::Scratchpad {
+                                // Search in scratchpad
+                                app.scratchpad_search();
+                            }
+                        }
+                        KeyCode::Char('c') => {
+                            if app.current_section == MenuSection::Scratchpad {
+                                if let Err(e) = app.scratchpad_copy_to_clipboard() {
+                                    app.report_error("Copy failed", e);
+                                }
+                            }
+                        }
+                        KeyCode::Char('R') => {
+                            if app.current_section == MenuSection::Scratchpad {
+                                app.scratchpad_rename();
+                            }
+                        }
+                        KeyCode::Char('i') => {
+                            if app.current_section == MenuSection::Shell {
+                                app.open_shell_input();
+                            }
+                        }
+                        KeyCode::Char('e') => {
+                            if app.current_section == MenuSection::Scratchpad {
+                                app.scratchpad_export();
+                            }
+                        }
+                        KeyCode::Char('h') => {
+                            if app.current_section == MenuSection::Shell {
+                                app.shell_search_history();
+                            }
+                        }
+                        KeyCode::Char('C') => {
+                            if app.current_section == MenuSection::Shell {
+                                app.shell_clear_history();
                             }
                         }
                         KeyCode::Tab => app.next_section(),
@@ -173,6 +204,19 @@ async fn run_app<B: ratatui::backend::Backend>(
                         KeyCode::Char('n') | KeyCode::Char('N') | KeyCode::Esc => {
                             app.cancel_confirm()
                         }
+                        _ => {}
+                    },
+                    AppState::ShellInput => match code {
+                        KeyCode::Enter => {
+                            if let Err(e) = app.execute_shell_command().await {
+                                app.report_error("Shell command failed", e);
+                            }
+                        }
+                        KeyCode::Esc => app.close_shell_input(),
+                        KeyCode::Backspace => app.shell_input_backspace(),
+                        KeyCode::Char(c) => app.shell_input_char(c),
+                        KeyCode::Left => app.shell_input_move_left(),
+                        KeyCode::Right => app.shell_input_move_right(),
                         _ => {}
                     },
                 }

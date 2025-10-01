@@ -1,6 +1,6 @@
 ## launchr
 
-A fast terminal dashboard to launch, monitor, and manage apps, bookmarks, clipboard history, Docker containers, Git repositories, network connections, SSH hosts, scripts, notifications, and shell history. Built in Rust with ratatui.
+A fast terminal dashboard to launch, monitor, and manage apps, bookmarks, clipboard history, Docker containers, Git repositories, network connections, SSH hosts, scripts, notifications, shell history, quick notes (scratchpad), and an embedded shell terminal. Built in Rust with ratatui.
 
 ### Build
 - Prerequisites: Rust stable, Cargo
@@ -13,7 +13,7 @@ Tested on Linux/macOS/Windows. On Windows, run in a true terminal (Windows Termi
 - Global: `q` quit, `Tab`/`Shift+Tab` next/previous section, `j/k` or `↓/↑` navigate, `Enter` activate
 - Lists: `n` new, `d` delete, `r` refresh, `t` toggle details, `PgUp`/`PgDn` `Home`/`End`
 - Search: `/` open fuzzy search (scoped to current section), type to filter, `Enter` jump, `Esc` close
-- Help: `?` overlay
+- Help: `?` toggle help overlay
 - Apps: `Enter` launch, `s` stop process (also from Dashboard)
 - Clipboard: `Enter` copy to clipboard, `p` pin/unpin entry
 - Docker: `Enter` exec into container, `v` switch view (containers/images), `a` toggle show all
@@ -21,20 +21,25 @@ Tested on Linux/macOS/Windows. On Windows, run in a true terminal (Windows Termi
 - SSH: `x` disconnect latest session (terminates the ssh process)
 - Scripts: `S` schedule selected script (example every 60s)
 - Git: `Enter` open in editor, `S` scan for repositories
+- Scratchpad: `n` new note, `c` copy to clipboard, `e` export to path, `R` rename, `f` search notes, `t` toggle preview
+- Shell: `i` input command, `h` search history, `C` clear history
 
-Sections: `1` Dashboard, `2` Apps, `3` Bookmarks, `4` Clipboard, `5` Docker, `6` Network, `7` SSH, `8` Scripts, `9` Git, `0` History/Notifications (toggle)
+**Sections:** `1` Dashboard, `2` Apps, `3` Bookmarks, `4` Clipboard, `5` Docker, `6` Network, `7` SSH, `8` Scripts, `9` Git, `0` History, `-` Scratchpad, `=` Shell, `[` Notifications
 
 ### Features
-- Dashboard: running processes (scrollable), active SSH sessions, recent notifications
-- Apps: auto-scan PATH for executables (on Windows, filters to .exe/.bat/.cmd/.ps1); show running processes via sysinfo
-- Bookmarks: open files/dirs/URLs with platform-native open
-- Clipboard: track clipboard history with timestamps, pin important entries, copy back to clipboard
-- Docker: view and manage containers and images; exec into running containers; toggle between running and all containers
-- Git: scan directories for repositories; view status, branch, uncommitted changes, ahead/behind commits; open repositories in editor
-- Network: monitor active connections with state filtering; view network interfaces with IP/MAC addresses; list listening ports with process info
-- SSH: connect via system SSH (uses `-p <port>`); auto-detects active sessions by scanning running `ssh` processes; disconnect (`x`) ends the underlying process
-- Scripts: run commands; simple scheduling (example)
-- History: browse and run recent shell commands
+- **Dashboard**: running processes (scrollable), active SSH sessions, recent notifications
+- **Apps**: auto-scan PATH for executables (on Windows, filters to .exe/.bat/.cmd/.ps1); show running processes via sysinfo
+- **Bookmarks**: open files/dirs/URLs with platform-native open
+- **Clipboard**: track clipboard history with timestamps, pin important entries, copy back to clipboard
+- **Docker**: view and manage containers and images; exec into running containers; toggle between running and all containers
+- **Git**: scan directories for repositories; view status, branch, uncommitted changes, ahead/behind commits; open repositories in editor
+- **Network**: monitor active connections with state filtering; view network interfaces with IP/MAC addresses; list listening ports with process info
+- **SSH**: connect via system SSH (uses `-p <port>`); auto-detects active sessions by scanning running `ssh` processes; disconnect (`x`) ends the underlying process
+- **Scripts**: run commands; simple scheduling (example)
+- **History**: browse and run recent shell commands
+- **Scratchpad**: quick note-taking with auto-detection of your preferred editor (VSCode, Sublime, Notepad++, vim, etc.); search, rename, export, copy notes to clipboard
+- **Shell**: embedded minimal shell terminal with built-in commands (`cd`, `pwd`, `history`, etc.) and external command execution through your system shell
+- **Notifications**: system-level notifications for actions
 - Context-aware fuzzy search `/` per section
 - Dynamic header: username, time, arch, detected shell, CPU cores and average usage
 
@@ -74,6 +79,10 @@ git_search_paths = [
   "~/Documents/GitHub",
   "~/code",
 ]
+
+[scratchpad]
+editor = "notepad++.exe"  # Optional: specify your preferred editor
+# directory = "C:\\Users\\YourName\\Documents\\Notes"  # Optional: custom notes location
 ```
 
 You can also add entries in-app:
@@ -109,6 +118,27 @@ You can also add entries in-app:
 - Ports view: listening ports with process names and PIDs
 - Filter connections by state (ESTABLISHED, LISTEN, etc.)
 - Uses platform-specific commands: `ss`/`netstat` (Linux), `netstat` (macOS), `netstat`/`ipconfig` (Windows)
+
+**Scratchpad Module**
+- Quick note-taking with automatic editor detection (checks for VSCode, Sublime Text, Notepad++, vim, etc.)
+- Auto-generates timestamped filenames or use custom names
+- Search notes by filename or content
+- Copy note contents to clipboard
+- Export notes to custom paths
+- Rename notes in-place
+- Preview pane with toggle (`t`)
+- Respects `EDITOR` environment variable or configured editor in config.toml
+- Default storage: `~/.launchr/scratchpad/` (configurable)
+
+**Shell Module**
+- Embedded terminal with command execution
+- Built-in commands: `cd`, `pwd`, `clear`, `exit`, `export`, `history`
+- External command execution through system shell (PowerShell on Windows, bash/zsh on Unix)
+- Command history with exit status indicators (✓/✗)
+- Working directory tracking
+- History search functionality
+- Clear history option
+- Shows current prompt with user@hostname:dir format
 
 ### Notes
 - Uses `sysinfo` for processes, `which` for PATH resolution, and `crossterm`/`ratatui` for TUI.

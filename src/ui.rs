@@ -39,6 +39,8 @@ pub fn draw(f: &mut Frame, app: &App) {
         MenuSection::Notifications => draw_notifications(f, app, main_chunks[1]),
         MenuSection::History => draw_history(f, app, main_chunks[1]),
         MenuSection::Git => draw_git(f, app, main_chunks[1]),
+        MenuSection::Scratchpad => draw_scratchpad(f, app, main_chunks[1]),
+        MenuSection::Shell => draw_shell(f, app, main_chunks[1]),
     }
 
     draw_status(f, app, chunks[2]);
@@ -51,6 +53,8 @@ pub fn draw(f: &mut Frame, app: &App) {
         draw_help_popup(f);
     } else if app.state == AppState::Search {
         draw_search_popup(f, app);
+    } else if app.state == AppState::ShellInput {
+        draw_shell_input_popup(f, app);
     }
 }
 
@@ -86,7 +90,7 @@ fn draw_title(f: &mut Frame, area: Rect, app: &App) {
 }
 
 fn draw_menu(f: &mut Frame, app: &App, area: Rect) {
-    let items: Vec<ListItem> = vec![
+    let menu_items = vec![
         ("1", "Dashboard", MenuSection::Dashboard),
         ("2", "Apps", MenuSection::Apps),
         ("3", "Bookmarks", MenuSection::Bookmarks),
@@ -96,34 +100,26 @@ fn draw_menu(f: &mut Frame, app: &App, area: Rect) {
         ("7", "SSH", MenuSection::SSH),
         ("8", "Scripts", MenuSection::Scripts),
         ("9", "Git", MenuSection::Git),
-    ].iter()
+        ("0", "History", MenuSection::History),
+        ("-", "Scratchpad", MenuSection::Scratchpad),
+        ("=", "Shell", MenuSection::Shell),
+        ("[", "Notifications", MenuSection::Notifications),
+    ];
+
+    let items: Vec<ListItem> = menu_items.iter()
         .map(|(key, name, section)| {
             let style = if *section == app.current_section {
                 Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)
             } else {
                 Style::default()
             };
-            ListItem::new(format!("{} {}", key, name)).style(style)
+            ListItem::new(format!("{:>2} {}", key, name)).style(style)
         })
-        .chain(std::iter::once({
-            // Special handling for History/Notifications toggle
-            let (label, is_active) = match app.current_section {
-                MenuSection::History => ("0 History", true),
-                MenuSection::Notifications => ("0 Notif", true),
-                _ => ("0 History/Notif", false),
-            };
-            let style = if is_active {
-                Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)
-            } else {
-                Style::default()
-            };
-            ListItem::new(label).style(style)
-        }))
         .collect();
 
     let list = List::new(items).block(
         Block::default()
-            .title("Menu")
+            .title("Menu (Tab/Shift+Tab)")
             .borders(Borders::ALL)
             .border_style(Style::default().fg(Color::White)),
     );
@@ -861,10 +857,19 @@ fn draw_network(f: &mut Frame, app: &App, area: Rect) {
 
 fn draw_status(f: &mut Frame, app: &App, area: Rect) {
     let help_text = match app.state {
-        AppState::Normal => "q: Quit | Tab/Shift+Tab: Next/Prev Section | ↑↓/jk: Navigate | Enter: Select | n: New | d: Delete | r: Refresh | s: Stop Process | x: Disconnect SSH | t: Toggle",
+        AppState::Normal => {
+            if app.current_section == MenuSection::Shell {
+                "q: Quit | i: Input | h: Search History | C: Clear History | Built-ins: cd,pwd,history + External commands"
+            } else if app.current_section == MenuSection::Scratchpad {
+                "q: Quit | n: New | c: Copy | e: Export | R: Rename | f: Search | Enter: Open | d: Delete"
+            } else {
+                "q: Quit | Tab/Shift+Tab: Next/Prev Section | ↑↓/jk: Navigate | Enter: Select | n: New | d: Delete | r: Refresh | s: Stop Process | x: Disconnect SSH | t: Toggle"
+            }
+        }
         AppState::Input => "Enter: Submit | Esc: Cancel | Type your input",
         AppState::Confirm => "y: Yes | n: No | Esc: Cancel",
         AppState::Search => "/: Search | Enter: Jump | Esc: Close | ↑↓/PgUp/PgDn/Home/End: Navigate",
+        AppState::ShellInput => "Enter: Execute | Esc: Cancel | Type shell command",
     };
 
     let status = Paragraph::new(vec![
@@ -926,8 +931,8 @@ fn centered_rect(percent_x: u16, percent_y: u16, r: Rect) -> Rect {
 }
 
 fn draw_help_popup(f: &mut Frame) {
-    let area = centered_rect(70, 70, f.area());
-    let help = "launchr Help\n\nKeys:\n  q: Quit\n  Tab/Shift+Tab: Next/Previous Section\n  0-9: Jump to section (0 toggles History/Notifications)\n  j/k or ↑/↓: Navigate\n  PgUp/PgDn, Home/End: Page/Jump\n  Enter: Activate\n  n/d: New/Delete\n  r: Refresh\n  s: Stop process (Dashboard/Apps)\n  t: Toggle details (Scripts)\n  v: Switch view (Docker/Network)\n  f: Filter connections (Network)\n  /: Open fuzzy search\n  In search: type to filter, ↑/↓/PgUp/PgDn/Home/End to move, Enter to jump, Esc to close\n  S: Schedule script (Scripts) or Scan repositories (Git)\n  x: Disconnect latest SSH\n  ?: Toggle this help\n\nSections:\n  Dashboard: View running processes (s to stop)\n  Apps: Launch apps or stop processes (s to stop)\n  Docker: Manage containers/images (v to switch view)\n  Network: View connections/interfaces/ports (v to switch, f to filter)\n  SSH: Connect to hosts or disconnect sessions (x to disconnect)\n  Scripts: Run or schedule scripts\n  Git: View and manage repositories (S to scan)\n  History: Re-run shell commands";
+    let area = centered_rect(70, 75, f.area());
+    let help = "launchr Help\n\nNavigation:\n  q: Quit  |  ?: Toggle this help\n  Tab/Shift+Tab: Next/Previous Section\n  1-9,0,-,=,[: Jump to section\n    1=Dashboard  2=Apps  3=Bookmarks  4=Clipboard  5=Docker  6=Network\n    7=SSH  8=Scripts  9=Git  0=History  -=Scratchpad  ==Shell  [=Notifications\n  j/k or ↑/↓: Navigate items  |  PgUp/PgDn, Home/End: Jump\n  /: Fuzzy search (type to filter, Enter to jump, Esc to close)\n\nGeneral Actions:\n  Enter: Activate/Open  |  n: New  |  d: Delete  |  r: Refresh  |  t: Toggle details\n\nSection-Specific:\n  Dashboard/Apps: s=stop process\n  Docker/Network: v=switch view  |  Network: f=filter\n  SSH: x=disconnect latest\n  Scripts: S=schedule  |  Git: S=scan repos\n  Scratchpad: c=copy, e=export, R=rename, f=search\n  Shell: i=input command, h=search history, C=clear history\n\nSections:\n  Dashboard: Running processes  |  Apps: Launch apps\n  Bookmarks: Quick links  |  Clipboard: Clipboard history\n  Docker: Containers/Images  |  Network: Connections/Interfaces/Ports\n  SSH: Remote connections  |  Scripts: Run commands\n  Git: Repository status  |  History: Shell command history\n  Scratchpad: Quick notes  |  Shell: Embedded terminal\n  Notifications: System messages";
 
     let paragraph = Paragraph::new(help)
         .block(
@@ -997,6 +1002,182 @@ fn draw_search_popup(f: &mut Frame, app: &App) {
     let list = List::new(items)
         .block(Block::default().title("Results").borders(Borders::ALL));
     f.render_widget(list, list_area);
+}
+
+fn draw_scratchpad(f: &mut Frame, app: &App, area: Rect) {
+    let chunks = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints([Constraint::Percentage(70), Constraint::Percentage(30)])
+        .split(area);
+
+    // Filter notes if search is active
+    let display_indices: Vec<usize> = if !app.scratchpad_search_query.is_empty() {
+        app.scratchpad_search_results.clone()
+    } else {
+        (0..app.scratchpad_module.notes.len()).collect()
+    };
+
+    let items: Vec<ListItem> = display_indices
+        .iter()
+        .map(|&idx| {
+            let note = &app.scratchpad_module.notes[idx];
+            let style = if idx == app.selected_index {
+                Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)
+            } else {
+                Style::default()
+            };
+            
+            let size_kb = note.size_bytes as f64 / 1024.0;
+            let size_str = if size_kb < 1.0 {
+                format!("{}B", note.size_bytes)
+            } else {
+                format!("{:.1}KB", size_kb)
+            };
+            
+            let created = note.created_at.format("%Y-%m-%d").to_string();
+            
+            ListItem::new(format!(
+                "📝 {} - {} ({}) [created: {}]",
+                note.name,
+                note.modified_at.format("%Y-%m-%d %H:%M"),
+                size_str,
+                created
+            ))
+            .style(style)
+        })
+        .collect();
+
+    let title = if !app.scratchpad_search_query.is_empty() {
+        format!(
+            "Scratchpad Notes - Search: \"{}\" ({} results) (n: new, d: delete, c: copy, e: export, R: rename, f: search, Enter: open)",
+            app.scratchpad_search_query,
+            display_indices.len()
+        )
+    } else {
+        "Scratchpad Notes (n: new, d: delete, c: copy, e: export, R: rename, f: search, Enter: open, r: refresh, t: preview)".to_string()
+    };
+
+    if items.is_empty() {
+        let empty_msg = if !app.scratchpad_search_query.is_empty() {
+            format!("No notes match \"{}\"\nPress 'f' to search again", app.scratchpad_search_query)
+        } else {
+            "No notes yet. Press 'n' to create a new note".to_string()
+        };
+        let empty = Paragraph::new(empty_msg)
+            .block(Block::default().title(title).borders(Borders::ALL));
+        f.render_widget(empty, chunks[0]);
+    } else {
+        let list = List::new(items).block(
+            Block::default()
+                .title(title)
+                .borders(Borders::ALL),
+        );
+        f.render_widget(list, chunks[0]);
+    }
+
+    // Preview pane
+    if app.show_detail && app.selected_index < app.scratchpad_module.notes.len() {
+        if let Ok(preview) = app.scratchpad_module.get_content_preview(app.selected_index, 500) {
+            let detail = Paragraph::new(preview)
+                .block(Block::default().title("Preview (t to toggle)").borders(Borders::ALL))
+                .wrap(Wrap { trim: false });
+            f.render_widget(detail, chunks[1]);
+        } else {
+            let help = Paragraph::new("Could not load preview")
+                .block(Block::default().title("Preview").borders(Borders::ALL));
+            f.render_widget(help, chunks[1]);
+        }
+    } else {
+        let help = Paragraph::new("Shortcuts:\n  t: toggle preview\n  n: new note\n  c: copy to clipboard\n  e: export to path\n  R: rename\n  f: search\n  Enter: open in editor")
+            .block(Block::default().title("Help").borders(Borders::ALL));
+        f.render_widget(help, chunks[1]);
+    }
+}
+
+fn draw_shell(f: &mut Frame, app: &App, area: Rect) {
+    let chunks = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints([Constraint::Min(5), Constraint::Length(8)])
+        .split(area);
+
+    // Command history output
+    let history_items: Vec<ListItem> = app
+        .shell_terminal_module
+        .history
+        .iter()
+        .take(20)
+        .map(|cmd| {
+            let output_preview = if cmd.output.len() > 100 {
+                format!("{}...", &cmd.output[..97])
+            } else {
+                cmd.output.clone()
+            };
+            
+            let exit_status = match cmd.exit_code {
+                Some(0) => "✓",
+                Some(_) => "✗",
+                None => "?",
+            };
+            
+            ListItem::new(vec![
+                Line::from(vec![
+                    Span::styled(exit_status, Style::default().fg(if cmd.exit_code == Some(0) { Color::Green } else { Color::Red })),
+                    Span::raw(" "),
+                    Span::styled(&cmd.command, Style::default().fg(Color::Cyan)),
+                    Span::raw(format!(" @ {} ({})", cmd.working_dir.display(), cmd.timestamp.format("%H:%M:%S"))),
+                ]),
+                Line::from(format!("  {}", output_preview)),
+            ])
+        })
+        .collect();
+
+    if app.shell_terminal_module.history.is_empty() {
+        let empty = Paragraph::new("No commands executed yet\n\nPress 'i' to enter a command.\n\nSupported built-ins: cd, pwd, clear, exit, export, history\nExternal commands run through your system shell.")
+            .block(Block::default().title("Shell Terminal").borders(Borders::ALL));
+        f.render_widget(empty, chunks[0]);
+    } else {
+        let list = List::new(history_items).block(
+            Block::default()
+                .title("Command History (most recent first)")
+                .borders(Borders::ALL),
+        );
+        f.render_widget(list, chunks[0]);
+    }
+
+    // Current working directory and prompt info
+    let cwd = app.shell_terminal_module.get_current_dir();
+    let prompt = app.shell_terminal_module.get_prompt();
+    let history_count = app.shell_terminal_module.history.len();
+    let max_history = app.shell_terminal_module.max_history;
+    
+    let info_text = format!(
+        "Working Directory: {}\nPrompt: {}\nHistory: {}/{}\n\nKeys: i=input  h=search history  C=clear history  r=refresh",
+        cwd.display(),
+        prompt,
+        history_count,
+        max_history
+    );
+    
+    let info = Paragraph::new(info_text)
+        .block(Block::default().title("Shell Info").borders(Borders::ALL))
+        .wrap(Wrap { trim: false });
+    f.render_widget(info, chunks[1]);
+}
+
+fn draw_shell_input_popup(f: &mut Frame, app: &App) {
+    let area = centered_rect(70, 20, f.area());
+    let prompt = app.shell_terminal_module.get_prompt();
+    let input_text = format!("{}{}", prompt, app.shell_input_buffer);
+    let input = Paragraph::new(input_text)
+        .block(
+            Block::default()
+                .title("Shell Command (Enter to execute, Esc to cancel)")
+                .borders(Borders::ALL)
+                .border_style(Style::default().fg(Color::Green)),
+        )
+        .wrap(Wrap { trim: false });
+    f.render_widget(ratatui::widgets::Clear, area);
+    f.render_widget(input, area);
 }
 
 
