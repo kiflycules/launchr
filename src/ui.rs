@@ -86,7 +86,7 @@ fn draw_title(f: &mut Frame, area: Rect, app: &App) {
 }
 
 fn draw_menu(f: &mut Frame, app: &App, area: Rect) {
-    let menu_items = vec![
+    let items: Vec<ListItem> = vec![
         ("1", "Dashboard", MenuSection::Dashboard),
         ("2", "Apps", MenuSection::Apps),
         ("3", "Bookmarks", MenuSection::Bookmarks),
@@ -96,11 +96,7 @@ fn draw_menu(f: &mut Frame, app: &App, area: Rect) {
         ("7", "SSH", MenuSection::SSH),
         ("8", "Scripts", MenuSection::Scripts),
         ("9", "Git", MenuSection::Git),
-        ("0", "History/Notif", MenuSection::History),
-    ];
-
-    let items: Vec<ListItem> = menu_items
-        .iter()
+    ].iter()
         .map(|(key, name, section)| {
             let style = if *section == app.current_section {
                 Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)
@@ -109,6 +105,20 @@ fn draw_menu(f: &mut Frame, app: &App, area: Rect) {
             };
             ListItem::new(format!("{} {}", key, name)).style(style)
         })
+        .chain(std::iter::once({
+            // Special handling for History/Notifications toggle
+            let (label, is_active) = match app.current_section {
+                MenuSection::History => ("0 History", true),
+                MenuSection::Notifications => ("0 Notif", true),
+                _ => ("0 History/Notif", false),
+            };
+            let style = if is_active {
+                Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)
+            } else {
+                Style::default()
+            };
+            ListItem::new(label).style(style)
+        }))
         .collect();
 
     let list = List::new(items).block(

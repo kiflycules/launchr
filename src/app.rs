@@ -379,17 +379,17 @@ impl App {
             MenuSection::Docker => MenuSection::Network,
             MenuSection::Network => MenuSection::SSH,
             MenuSection::SSH => MenuSection::Scripts,
-            MenuSection::Scripts => MenuSection::Notifications,
-            MenuSection::Notifications => MenuSection::History,
-            MenuSection::History => MenuSection::Git,
-            MenuSection::Git => MenuSection::Dashboard,
+            MenuSection::Scripts => MenuSection::Git,
+            MenuSection::Git => MenuSection::History,
+            MenuSection::History => MenuSection::Notifications,
+            MenuSection::Notifications => MenuSection::Dashboard,
         };
         self.selected_index = 0;
     }
 
     pub fn previous_section(&mut self) {
         self.current_section = match self.current_section {
-            MenuSection::Dashboard => MenuSection::Git,
+            MenuSection::Dashboard => MenuSection::Notifications,
             MenuSection::Apps => MenuSection::Dashboard,
             MenuSection::Bookmarks => MenuSection::Apps,
             MenuSection::Clipboard => MenuSection::Bookmarks,
@@ -397,9 +397,9 @@ impl App {
             MenuSection::Network => MenuSection::Docker,
             MenuSection::SSH => MenuSection::Network,
             MenuSection::Scripts => MenuSection::SSH,
-            MenuSection::Notifications => MenuSection::Scripts,
-            MenuSection::History => MenuSection::Notifications,
-            MenuSection::Git => MenuSection::History,
+            MenuSection::Git => MenuSection::Scripts,
+            MenuSection::History => MenuSection::Git,
+            MenuSection::Notifications => MenuSection::History,
         };
         self.selected_index = 0;
     }
