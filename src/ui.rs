@@ -95,8 +95,8 @@ fn draw_menu(f: &mut Frame, app: &App, area: Rect) {
         ("6", "Network", MenuSection::Network),
         ("7", "SSH", MenuSection::SSH),
         ("8", "Scripts", MenuSection::Scripts),
-        ("9", "Notifications", MenuSection::Notifications),
-        ("0", "Git/History", MenuSection::Git),
+        ("9", "Git", MenuSection::Git),
+        ("0", "History/Notif", MenuSection::History),
     ];
 
     let items: Vec<ListItem> = menu_items
@@ -917,7 +917,7 @@ fn centered_rect(percent_x: u16, percent_y: u16, r: Rect) -> Rect {
 
 fn draw_help_popup(f: &mut Frame) {
     let area = centered_rect(70, 70, f.area());
-    let help = "launchr Help\n\nKeys:\n  q: Quit\n  Tab/Shift+Tab: Next/Previous Section\n  0-9: Jump to section (0 toggles Git/History)\n  j/k or ↑/↓: Navigate\n  PgUp/PgDn, Home/End: Page/Jump\n  Enter: Activate\n  n/d: New/Delete\n  r: Refresh\n  s: Stop process (Dashboard/Apps)\n  t: Toggle details (Scripts)\n  v: Switch view (Docker/Network)\n  f: Filter connections (Network)\n  /: Open fuzzy search\n  In search: type to filter, ↑/↓/PgUp/PgDn/Home/End to move, Enter to jump, Esc to close\n  S: Schedule script (Scripts) or Scan repositories (Git)\n  x: Disconnect latest SSH\n  ?: Toggle this help\n\nSections:\n  Dashboard: View running processes (s to stop)\n  Apps: Launch apps or stop processes (s to stop)\n  Docker: Manage containers/images (v to switch view)\n  Network: View connections/interfaces/ports (v to switch, f to filter)\n  SSH: Connect to hosts or disconnect sessions (x to disconnect)\n  Scripts: Run or schedule scripts\n  Git: View and manage repositories (S to scan)\n  History: Re-run shell commands";
+    let help = "launchr Help\n\nKeys:\n  q: Quit\n  Tab/Shift+Tab: Next/Previous Section\n  0-9: Jump to section (0 toggles History/Notifications)\n  j/k or ↑/↓: Navigate\n  PgUp/PgDn, Home/End: Page/Jump\n  Enter: Activate\n  n/d: New/Delete\n  r: Refresh\n  s: Stop process (Dashboard/Apps)\n  t: Toggle details (Scripts)\n  v: Switch view (Docker/Network)\n  f: Filter connections (Network)\n  /: Open fuzzy search\n  In search: type to filter, ↑/↓/PgUp/PgDn/Home/End to move, Enter to jump, Esc to close\n  S: Schedule script (Scripts) or Scan repositories (Git)\n  x: Disconnect latest SSH\n  ?: Toggle this help\n\nSections:\n  Dashboard: View running processes (s to stop)\n  Apps: Launch apps or stop processes (s to stop)\n  Docker: Manage containers/images (v to switch view)\n  Network: View connections/interfaces/ports (v to switch, f to filter)\n  SSH: Connect to hosts or disconnect sessions (x to disconnect)\n  Scripts: Run or schedule scripts\n  Git: View and manage repositories (S to scan)\n  History: Re-run shell commands";
 
     let paragraph = Paragraph::new(help)
         .block(

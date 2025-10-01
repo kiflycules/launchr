@@ -22,7 +22,7 @@ Tested on Linux/macOS/Windows. On Windows, run in a true terminal (Windows Termi
 - Scripts: `S` schedule selected script (example every 60s)
 - Git: `Enter` open in editor, `S` scan for repositories
 
-Sections: `1` Dashboard, `2` Apps, `3` Bookmarks, `4` Clipboard, `5` Docker, `6` Network, `7` SSH, `8` Scripts, `9` Notifications, `0` Git/History (toggle)
+Sections: `1` Dashboard, `2` Apps, `3` Bookmarks, `4` Clipboard, `5` Docker, `6` Network, `7` SSH, `8` Scripts, `9` Git, `0` History/Notifications (toggle)
 
 ### Features
 - Dashboard: running processes (scrollable), active SSH sessions, recent notifications

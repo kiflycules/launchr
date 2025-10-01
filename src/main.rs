@@ -66,13 +66,13 @@ async fn run_app<B: ratatui::backend::Backend>(
                         KeyCode::Char('6') => app.current_section = MenuSection::Network,
                         KeyCode::Char('7') => app.current_section = MenuSection::SSH,
                         KeyCode::Char('8') => app.current_section = MenuSection::Scripts,
-                        KeyCode::Char('9') => app.current_section = MenuSection::Notifications,
+                        KeyCode::Char('9') => app.current_section = MenuSection::Git,
                         KeyCode::Char('0') => {
-                            // Toggle between Git and History
-                            app.current_section = if app.current_section == MenuSection::Git {
-                                MenuSection::History
+                            // Toggle between History and Notifications
+                            app.current_section = if app.current_section == MenuSection::History {
+                                MenuSection::Notifications
                             } else {
-                                MenuSection::Git
+                                MenuSection::History
                             };
                         }
                         KeyCode::Up | KeyCode::Char('k') => app.previous_item(),
