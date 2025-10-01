@@ -27,12 +27,10 @@ impl GitModule {
         // Use configured paths if provided
         if !config_paths.is_empty() {
             for path_str in config_paths {
-                let path = if path_str.starts_with("~/") {
-                    if let Some(home) = dirs::home_dir() {
-                        home.join(&path_str[2..])
-                    } else {
-                        PathBuf::from(path_str)
-                    }
+                let path = if path_str == "~" || path_str == "~/" || path_str == "~\\" {
+                    dirs::home_dir().unwrap_or_else(|| PathBuf::from("/"))
+                } else if path_str.starts_with("~/") {
+                    if let Some(home) = dirs::home_dir() { home.join(&path_str[2..]) } else { PathBuf::from(path_str) }
                 } else {
                     PathBuf::from(path_str)
                 };
@@ -87,8 +85,17 @@ impl GitModule {
         if let Ok(entries) = fs::read_dir(dir) {
             for entry in entries.flatten() {
                 if let Ok(file_type) = entry.file_type() {
+                    let mut next_path: Option<PathBuf> = None;
                     if file_type.is_dir() {
-                        let path = entry.path();
+                        next_path = Some(entry.path());
+                    } else if file_type.is_symlink() {
+                        // Follow directory symlinks
+                        if let Ok(target) = fs::read_link(entry.path()) {
+                            let resolved = if target.is_absolute() { target } else { dir.join(target) };
+                            if resolved.is_dir() { next_path = Some(resolved); }
+                        }
+                    }
+                    if let Some(path) = next_path {
                         // Skip hidden directories (except .git which we check above)
                         if let Some(name) = path.file_name() {
                             if !name.to_string_lossy().starts_with('.') {
