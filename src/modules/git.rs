@@ -115,7 +115,8 @@ impl GitModule {
         
         // Get current branch
         let branch = Command::new("git")
-            .args(&["-C", path.to_str()?, "branch", "--show-current"])
+            .arg("-C").arg(path)
+            .args(&["branch", "--show-current"])
             .output()
             .ok()
             .and_then(|o| {
@@ -128,16 +129,19 @@ impl GitModule {
             .unwrap_or_else(|| "detached".to_string());
         
         // Get status
-        let status_output = Command::new("git")
-            .args(&["-C", path.to_str()?, "status", "--porcelain"])
+        let status_output_opt = Command::new("git")
+            .arg("-C").arg(path)
+            .args(&["status", "--porcelain"])
             .output()
-            .ok()?;
+            .ok();
         
-        let uncommitted_changes = if status_output.status.success() {
-            String::from_utf8_lossy(&status_output.stdout)
+        let uncommitted_changes = if let Some(status_output) = status_output_opt {
+            if status_output.status.success() {
+                String::from_utf8_lossy(&status_output.stdout)
                 .lines()
                 .filter(|l| !l.is_empty())
                 .count()
+            } else { 0 }
         } else {
             0
         };
@@ -145,7 +149,8 @@ impl GitModule {
         // Get ahead/behind info
         let (ahead, behind) = if !branch.is_empty() && branch != "detached" {
             let upstream_output = Command::new("git")
-                .args(&["-C", path.to_str()?, "rev-list", "--count", "--left-right", &format!("origin/{}...HEAD", branch)])
+                .arg("-C").arg(path)
+                .args(&["rev-list", "--count", "--left-right", &format!("origin/{}...HEAD", branch)])
                 .output()
                 .ok();
             
@@ -183,7 +188,8 @@ impl GitModule {
         
         // Get last commit message
         let last_commit = Command::new("git")
-            .args(&["-C", path.to_str()?, "log", "-1", "--pretty=%s"])
+            .arg("-C").arg(path)
+            .args(&["log", "-1", "--pretty=%s"])
             .output()
             .ok()
             .and_then(|o| {
