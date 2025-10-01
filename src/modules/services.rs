@@ -42,7 +42,7 @@ pub enum ServiceManager {
     Launchd,      // macOS
     #[cfg(target_os = "windows")]
     WindowsService, // Windows Services
-    #[cfg(not(any(target_os = "linux", target_os = "macos", target_os = "windows")))]
+    #[cfg(any(target_os = "linux", not(any(target_os = "linux", target_os = "macos", target_os = "windows"))))]
     Unknown,
 }
 
@@ -70,13 +70,15 @@ impl ServicesModule {
         {
             // Check if systemctl is available
             if Command::new("systemctl").arg("--version").output().is_ok() {
-                return ServiceManager::Systemd;
+                ServiceManager::Systemd
+            } else {
+                ServiceManager::Unknown
             }
         }
 
         #[cfg(target_os = "macos")]
         {
-            return ServiceManager::Launchd;
+            ServiceManager::Launchd
         }
 
         #[cfg(target_os = "windows")]
@@ -100,7 +102,7 @@ impl ServicesModule {
             ServiceManager::Launchd => self.refresh_launchd()?,
             #[cfg(target_os = "windows")]
             ServiceManager::WindowsService => self.refresh_windows()?,
-            #[cfg(not(any(target_os = "linux", target_os = "macos", target_os = "windows")))]
+            #[cfg(target_os = "linux")]
             ServiceManager::Unknown => {}
         }
 
@@ -360,7 +362,7 @@ impl ServicesModule {
             ServiceManager::Launchd => self.launchd_start(&service.name),
             #[cfg(target_os = "windows")]
             ServiceManager::WindowsService => self.windows_start(&service.name),
-            #[cfg(not(any(target_os = "linux", target_os = "macos", target_os = "windows")))]
+            #[cfg(target_os = "linux")]
             ServiceManager::Unknown => Ok("Unknown service manager".to_string()),
         }
     }
@@ -379,7 +381,7 @@ impl ServicesModule {
             ServiceManager::Launchd => self.launchd_stop(&service.name),
             #[cfg(target_os = "windows")]
             ServiceManager::WindowsService => self.windows_stop(&service.name),
-            #[cfg(not(any(target_os = "linux", target_os = "macos", target_os = "windows")))]
+            #[cfg(target_os = "linux")]
             ServiceManager::Unknown => Ok("Unknown service manager".to_string()),
         }
     }
@@ -398,7 +400,7 @@ impl ServicesModule {
             ServiceManager::Launchd => self.launchd_restart(&service.name),
             #[cfg(target_os = "windows")]
             ServiceManager::WindowsService => self.windows_restart(&service.name),
-            #[cfg(not(any(target_os = "linux", target_os = "macos", target_os = "windows")))]
+            #[cfg(target_os = "linux")]
             ServiceManager::Unknown => Ok("Unknown service manager".to_string()),
         }
     }
@@ -417,7 +419,7 @@ impl ServicesModule {
             ServiceManager::Launchd => Ok("Launchd services are managed via plist files".to_string()),
             #[cfg(target_os = "windows")]
             ServiceManager::WindowsService => self.windows_enable(&service.name),
-            #[cfg(not(any(target_os = "linux", target_os = "macos", target_os = "windows")))]
+            #[cfg(target_os = "linux")]
             ServiceManager::Unknown => Ok("Unknown service manager".to_string()),
         }
     }
@@ -436,7 +438,7 @@ impl ServicesModule {
             ServiceManager::Launchd => Ok("Launchd services are managed via plist files".to_string()),
             #[cfg(target_os = "windows")]
             ServiceManager::WindowsService => self.windows_disable(&service.name),
-            #[cfg(not(any(target_os = "linux", target_os = "macos", target_os = "windows")))]
+            #[cfg(target_os = "linux")]
             ServiceManager::Unknown => Ok("Unknown service manager".to_string()),
         }
     }
@@ -455,7 +457,7 @@ impl ServicesModule {
             ServiceManager::Launchd => Ok("Log viewing not implemented for launchd".to_string()),
             #[cfg(target_os = "windows")]
             ServiceManager::WindowsService => Ok("Log viewing not implemented for Windows services".to_string()),
-            #[cfg(not(any(target_os = "linux", target_os = "macos", target_os = "windows")))]
+            #[cfg(target_os = "linux")]
             ServiceManager::Unknown => Ok("Unknown service manager".to_string()),
         }
     }
