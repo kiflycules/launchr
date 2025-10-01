@@ -15,6 +15,7 @@ use crate::modules::{
     history::ShellHistoryModule,
     scratchpad::ScratchpadModule,
     shell::ShellModule,
+    services::ServicesModule,
 };
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -32,6 +33,7 @@ pub enum MenuSection {
     Git,
     Scratchpad,
     Shell,
+    Services,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -77,6 +79,7 @@ pub struct App {
     pub shell_module: ShellHistoryModule,
     pub scratchpad_module: ScratchpadModule,
     pub shell_terminal_module: ShellModule,
+    pub services_module: ServicesModule,
     
     // Shell input state
     pub shell_input_buffer: String,
@@ -112,6 +115,7 @@ impl App {
         let shell_module = ShellHistoryModule::new();
         let scratchpad_module = ScratchpadModule::new(config.scratchpad_directory.clone(), config.scratchpad_editor.clone())?;
         let shell_terminal_module = ShellModule::new()?;
+        let services_module = ServicesModule::new();
 
         Ok(Self {
             current_section: MenuSection::Dashboard,
@@ -142,6 +146,7 @@ impl App {
             shell_module,
             scratchpad_module,
             shell_terminal_module,
+            services_module,
             shell_input_buffer: String::new(),
             shell_input_cursor: 0,
             scratchpad_search_query: String::new(),
@@ -258,6 +263,10 @@ impl App {
                 // Shell terminal - Enter key handled separately in shell input mode
                 self.status_message = "Type commands in the shell below".to_string();
             }
+            MenuSection::Services => {
+                // Services - use other keys for actions
+                self.status_message = "Use 's' to start, 'S' to stop, 'r' to restart service".to_string();
+            }
             MenuSection::Network => {
                 // Network view doesn't have a default action on Enter
                 self.status_message = "Use 'v' to switch views, 'f' to filter".to_string();
@@ -334,10 +343,87 @@ impl App {
                     self.status_message = "Refreshed scratchpad notes".to_string();
                 }
             }
+            MenuSection::Services => {
+                if let Err(e) = self.services_module.refresh() {
+                    self.status_message = format!("Failed to refresh services: {}", e);
+                } else {
+                    self.status_message = "Refreshed services".to_string();
+                }
+            }
             _ => {}
         }
         self.last_refresh = Instant::now();
         Ok(())
+    }
+
+    pub fn start_service(&mut self) {
+        if self.current_section == MenuSection::Services {
+            if let Ok(msg) = self.services_module.start_service(self.selected_index) {
+                self.status_message = format!("Started service: {}", msg);
+                self.notifications_module.push("Service", "Service started", "info");
+            }
+        }
+    }
+
+    pub fn stop_service(&mut self) {
+        if self.current_section == MenuSection::Services {
+            if let Ok(msg) = self.services_module.stop_service(self.selected_index) {
+                self.status_message = format!("Stopped service: {}", msg);
+                self.notifications_module.push("Service", "Service stopped", "warning");
+            }
+        }
+    }
+
+    pub fn restart_service(&mut self) {
+        if self.current_section == MenuSection::Services {
+            if let Ok(msg) = self.services_module.restart_service(self.selected_index) {
+                self.status_message = format!("Restarted service: {}", msg);
+                self.notifications_module.push("Service", "Service restarted", "info");
+            }
+        }
+    }
+    
+    pub fn enable_service(&mut self) {
+        if self.current_section == MenuSection::Services {
+            if let Ok(msg) = self.services_module.enable_service(self.selected_index) {
+                self.status_message = format!("Enabled service: {}", msg);
+                self.notifications_module.push("Service", "Service enabled", "info");
+            }
+        }
+    }
+    
+    pub fn disable_service(&mut self) {
+        if self.current_section == MenuSection::Services {
+            if let Ok(msg) = self.services_module.disable_service(self.selected_index) {
+                self.status_message = format!("Disabled service: {}", msg);
+                self.notifications_module.push("Service", "Service disabled", "warning");
+            }
+        }
+    }
+    
+    pub fn view_service_logs(&mut self) {
+        if self.current_section == MenuSection::Services {
+            if let Ok(logs) = self.services_module.get_service_logs(self.selected_index, 50) {
+                self.status_message = format!("Logs: {}...", logs.chars().take(100).collect::<String>());
+            }
+        }
+    }
+    
+    pub fn search_services(&mut self) {
+        if self.current_section == MenuSection::Services {
+            self.state = AppState::Input;
+            self.input_buffer.clear();
+            self.input_cursor = 0;
+            self.input_prompt = "Search services: ".to_string();
+        }
+    }
+    
+    pub fn execute_service_search(&mut self, query: String) {
+        let results = self.services_module.search(&query);
+        self.status_message = format!("Found {} services matching \"{}\"", results.len(), query);
+        if !results.is_empty() {
+            self.selected_index = results[0];
+        }
     }
 
     pub fn stop_selected(&mut self) {
@@ -429,7 +515,8 @@ impl App {
             MenuSection::Git => MenuSection::History,
             MenuSection::History => MenuSection::Scratchpad,
             MenuSection::Scratchpad => MenuSection::Shell,
-            MenuSection::Shell => MenuSection::Notifications,
+            MenuSection::Shell => MenuSection::Services,
+            MenuSection::Services => MenuSection::Notifications,
             MenuSection::Notifications => MenuSection::Dashboard,
         };
         self.selected_index = 0;
@@ -449,7 +536,8 @@ impl App {
             MenuSection::History => MenuSection::Git,
             MenuSection::Scratchpad => MenuSection::History,
             MenuSection::Shell => MenuSection::Scratchpad,
-            MenuSection::Notifications => MenuSection::Shell,
+            MenuSection::Services => MenuSection::Shell,
+            MenuSection::Notifications => MenuSection::Services,
         };
         self.selected_index = 0;
     }
@@ -498,6 +586,11 @@ impl App {
                 // Check if this is a search action
                 if self.input_prompt.starts_with("Search shell") {
                     self.execute_shell_action(input)?;
+                }
+            }
+            MenuSection::Services => {
+                if self.input_prompt.starts_with("Search services") {
+                    self.execute_service_search(input);
                 }
             }
             _ => {}
@@ -616,6 +709,7 @@ impl App {
             MenuSection::Git => self.git_module.repos.len(),
             MenuSection::Scratchpad => self.scratchpad_module.notes.len(),
             MenuSection::Shell => 0, // Shell has its own UI, no list
+            MenuSection::Services => self.services_module.services.len(),
         }
     }
 
@@ -803,6 +897,14 @@ impl App {
             }
             MenuSection::Shell => {
                 // Shell terminal doesn't have searchable items
+            }
+            MenuSection::Services => {
+                for (i, svc) in self.services_module.services.iter().enumerate() {
+                    let label = format!("Service: {} - {} ({})", svc.name, svc.display_name, svc.state.as_str());
+                    if let Some(score) = score_match(&label, &self.search_query) {
+                        results.push(SearchResult { section: MenuSection::Services, index: i, label, score });
+                    }
+                }
             }
         }
 

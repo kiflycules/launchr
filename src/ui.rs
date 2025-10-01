@@ -41,6 +41,7 @@ pub fn draw(f: &mut Frame, app: &App) {
         MenuSection::Git => draw_git(f, app, main_chunks[1]),
         MenuSection::Scratchpad => draw_scratchpad(f, app, main_chunks[1]),
         MenuSection::Shell => draw_shell(f, app, main_chunks[1]),
+        MenuSection::Services => draw_services(f, app, main_chunks[1]),
     }
 
     draw_status(f, app, chunks[2]);
@@ -103,6 +104,7 @@ fn draw_menu(f: &mut Frame, app: &App, area: Rect) {
         ("0", "History", MenuSection::History),
         ("-", "Scratchpad", MenuSection::Scratchpad),
         ("=", "Shell", MenuSection::Shell),
+        ("]", "Services", MenuSection::Services),
         ("[", "Notifications", MenuSection::Notifications),
     ];
 
@@ -862,6 +864,8 @@ fn draw_status(f: &mut Frame, app: &App, area: Rect) {
                 "q: Quit | i: Input | h: Search History | C: Clear History | Built-ins: cd,pwd,history + External commands"
             } else if app.current_section == MenuSection::Scratchpad {
                 "q: Quit | n: New | c: Copy | e: Export | R: Rename | f: Search | Enter: Open | d: Delete"
+            } else if app.current_section == MenuSection::Services {
+                "q: Quit | s: Start | S: Stop | R: Restart | E: Enable | D: Disable | l: Logs | u: User/System | f: Search | r: Refresh"
             } else {
                 "q: Quit | Tab/Shift+Tab: Next/Prev Section | ↑↓/jk: Navigate | Enter: Select | n: New | d: Delete | r: Refresh | s: Stop Process | x: Disconnect SSH | t: Toggle"
             }
@@ -1178,6 +1182,129 @@ fn draw_shell_input_popup(f: &mut Frame, app: &App) {
         .wrap(Wrap { trim: false });
     f.render_widget(ratatui::widgets::Clear, area);
     f.render_widget(input, area);
+}
+
+fn draw_services(f: &mut Frame, app: &App, area: Rect) {
+    let chunks = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints([Constraint::Percentage(70), Constraint::Percentage(30)])
+        .split(area);
+
+    // Calculate visible window
+    let window_height = chunks[0].height.saturating_sub(2) as usize;
+    let total = app.services_module.services.len();
+    let start = app.selected_index.saturating_sub(window_height / 2);
+    let end = usize::min(start + window_height, total);
+
+    let items: Vec<ListItem> = app
+        .services_module
+        .services
+        .iter()
+        .enumerate()
+        .skip(start)
+        .take(end.saturating_sub(start))
+        .map(|(i, svc)| {
+            let style = if i == app.selected_index {
+                Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)
+            } else {
+                Style::default()
+            };
+
+            let state_icon = match svc.state {
+                crate::modules::services::ServiceState::Running => "🟢",
+                crate::modules::services::ServiceState::Stopped => "🔴",
+                #[cfg(any(target_os = "linux", target_os = "macos"))]
+                crate::modules::services::ServiceState::Failed => "❌",
+                crate::modules::services::ServiceState::Unknown => "⚪",
+            };
+
+            let state_color = match svc.state {
+                crate::modules::services::ServiceState::Running => Color::Green,
+                crate::modules::services::ServiceState::Stopped => Color::Red,
+                #[cfg(any(target_os = "linux", target_os = "macos"))]
+                crate::modules::services::ServiceState::Failed => Color::Red,
+                crate::modules::services::ServiceState::Unknown => Color::Gray,
+            };
+
+            let enabled_icon = if svc.enabled { "✓" } else { "✗" };
+
+            let mut line_parts = vec![
+                Span::raw(state_icon),
+                Span::raw(" "),
+                Span::styled(format!("{:<30}", svc.display_name), style),
+                Span::raw(" "),
+                Span::styled(format!("[{}]", svc.state.as_str()), Style::default().fg(state_color)),
+                Span::raw(format!(" {} ", enabled_icon)),
+            ];
+
+            if let Some(ref mem) = svc.memory_usage {
+                line_parts.push(Span::raw(format!("Mem: {} ", mem)));
+            }
+
+            if let Some(pid) = svc.pid {
+                line_parts.push(Span::raw(format!("PID: {} ", pid)));
+            }
+
+            ListItem::new(Line::from(line_parts)).style(style)
+        })
+        .collect();
+
+    let title = if let Some(ref filter) = app.services_module.filter_state {
+        format!(
+            "Services [Filter: {}] (s: start, S: stop, R: restart, E: enable, D: disable, l: logs, u: user/sys, f: search)",
+            filter.as_str()
+        )
+    } else {
+        let scope = if app.services_module.show_user_services { "user" } else { "system" };
+        format!("Services [{}] (s: start, S: stop, R: restart, E: enable, D: disable, l: logs, u: user/sys, f: search, r: refresh)", scope)
+    };
+
+    if items.is_empty() {
+        let empty = Paragraph::new("No services found. Press 'r' to refresh or 'u' to toggle user/system services")
+            .block(Block::default().title(title).borders(Borders::ALL));
+        f.render_widget(empty, chunks[0]);
+    } else {
+        let list = List::new(items)
+            .block(Block::default().title(title).borders(Borders::ALL));
+        f.render_widget(list, chunks[0]);
+    }
+
+    // Details pane
+    if app.show_detail && app.selected_index < app.services_module.services.len() {
+        let svc = &app.services_module.services[app.selected_index];
+        let mut detail_text = format!(
+            "Name: {}\nDisplay Name: {}\nState: {}\nEnabled: {}",
+            svc.name,
+            svc.display_name,
+            svc.state.as_str(),
+            if svc.enabled { "Yes" } else { "No" }
+        );
+
+        if !svc.description.is_empty() {
+            detail_text.push_str(&format!("\nDescription: {}", svc.description));
+        }
+
+        if let Some(pid) = svc.pid {
+            detail_text.push_str(&format!("\nPID: {}", pid));
+        }
+
+        if let Some(ref mem) = svc.memory_usage {
+            detail_text.push_str(&format!("\nMemory: {}", mem));
+        }
+
+        if let Some(ref uptime) = svc.uptime {
+            detail_text.push_str(&format!("\nUptime: {}", uptime));
+        }
+
+        let detail = Paragraph::new(detail_text)
+            .block(Block::default().title("Details (t to toggle)").borders(Borders::ALL))
+            .wrap(Wrap { trim: false });
+        f.render_widget(detail, chunks[1]);
+    } else {
+        let help = Paragraph::new("Press 't' to toggle service details\nPress 'l' to view logs")
+            .block(Block::default().title("Info").borders(Borders::ALL));
+        f.render_widget(help, chunks[1]);
+    }
 }
 
 

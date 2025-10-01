@@ -10,3 +10,4 @@ pub mod ssh;
 pub mod history;
 pub mod scratchpad;
 pub mod shell;
+pub mod services;

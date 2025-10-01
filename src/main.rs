@@ -70,6 +70,7 @@ async fn run_app<B: ratatui::backend::Backend>(
                         KeyCode::Char('0') => app.current_section = MenuSection::History,
                         KeyCode::Char('-') => app.current_section = MenuSection::Scratchpad,
                         KeyCode::Char('=') => app.current_section = MenuSection::Shell,
+                        KeyCode::Char(']') => app.current_section = MenuSection::Services,
                         KeyCode::Char('[') => app.current_section = MenuSection::Notifications,
                         KeyCode::Up | KeyCode::Char('k') => app.previous_item(),
                         KeyCode::Down | KeyCode::Char('j') => app.next_item(),
@@ -86,7 +87,21 @@ async fn run_app<B: ratatui::backend::Backend>(
                         KeyCode::Char('r') => {
                             if let Err(e) = app.refresh().await { app.report_error("Refresh failed", e); }
                         }
-                        KeyCode::Char('s') => app.stop_selected(),
+                        KeyCode::Char('R') => {
+                            if app.current_section == MenuSection::Scratchpad {
+                                app.scratchpad_rename();
+                            } else if app.current_section == MenuSection::Services {
+                                app.restart_service();
+                                if let Err(e) = app.refresh().await { app.report_error("Refresh failed", e); }
+                            }
+                        }
+                        KeyCode::Char('s') => {
+                            if app.current_section == MenuSection::Services {
+                                app.start_service();
+                            } else {
+                                app.stop_selected();
+                            }
+                        }
                         KeyCode::Char('t') => app.toggle_detail(),
                         KeyCode::Char('S') => {
                             if app.current_section == MenuSection::Git {
@@ -96,8 +111,31 @@ async fn run_app<B: ratatui::backend::Backend>(
                                 } else {
                                     app.status_message = format!("Found {} repositories", app.git_module.repos.len());
                                 }
+                            } else if app.current_section == MenuSection::Services {
+                                app.stop_service();
                             } else {
                                 if let Err(e) = app.schedule_selected_script().await { app.report_error("Schedule failed", e); }
+                            }
+                        }
+                        KeyCode::Char('u') => {
+                            if app.current_section == MenuSection::Services {
+                                app.services_module.toggle_user_services();
+                                if let Err(e) = app.refresh().await { app.report_error("Refresh failed", e); }
+                            }
+                        }
+                        KeyCode::Char('E') => {
+                            if app.current_section == MenuSection::Services {
+                                app.enable_service();
+                            }
+                        }
+                        KeyCode::Char('D') => {
+                            if app.current_section == MenuSection::Services {
+                                app.disable_service();
+                            }
+                        }
+                        KeyCode::Char('l') => {
+                            if app.current_section == MenuSection::Services {
+                                app.view_service_logs();
                             }
                         }
                         KeyCode::Char('x') => app.disconnect_latest_session(),
@@ -132,6 +170,8 @@ async fn run_app<B: ratatui::backend::Backend>(
                             } else if app.current_section == MenuSection::Scratchpad {
                                 // Search in scratchpad
                                 app.scratchpad_search();
+                            } else if app.current_section == MenuSection::Services {
+                                app.search_services();
                             }
                         }
                         KeyCode::Char('c') => {
@@ -139,11 +179,6 @@ async fn run_app<B: ratatui::backend::Backend>(
                                 if let Err(e) = app.scratchpad_copy_to_clipboard() {
                                     app.report_error("Copy failed", e);
                                 }
-                            }
-                        }
-                        KeyCode::Char('R') => {
-                            if app.current_section == MenuSection::Scratchpad {
-                                app.scratchpad_rename();
                             }
                         }
                         KeyCode::Char('i') => {

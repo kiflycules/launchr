@@ -23,8 +23,9 @@ Tested on Linux/macOS/Windows. On Windows, run in a true terminal (Windows Termi
 - Git: `Enter` open in editor, `S` scan for repositories
 - Scratchpad: `n` new note, `c` copy to clipboard, `e` export to path, `R` rename, `f` search notes, `t` toggle preview
 - Shell: `i` input command, `h` search history, `C` clear history
+- Services: `s` start, `S` stop, `r` restart, `E` enable, `D` disable, `l` logs, `u` toggle user/system, `f` filter, `t` details
 
-**Sections:** `1` Dashboard, `2` Apps, `3` Bookmarks, `4` Clipboard, `5` Docker, `6` Network, `7` SSH, `8` Scripts, `9` Git, `0` History, `-` Scratchpad, `=` Shell, `[` Notifications
+**Sections:** `1` Dashboard, `2` Apps, `3` Bookmarks, `4` Clipboard, `5` Docker, `6` Network, `7` SSH, `8` Scripts, `9` Git, `0` History, `-` Scratchpad, `=` Shell, `]` Services, `[` Notifications
 
 ### Features
 - **Dashboard**: running processes (scrollable), active SSH sessions, recent notifications
@@ -39,6 +40,7 @@ Tested on Linux/macOS/Windows. On Windows, run in a true terminal (Windows Termi
 - **History**: browse and run recent shell commands
 - **Scratchpad**: quick note-taking with auto-detection of your preferred editor (VSCode, Sublime, Notepad++, vim, etc.); search, rename, export, copy notes to clipboard
 - **Shell**: embedded minimal shell terminal with built-in commands (`cd`, `pwd`, `history`, etc.) and external command execution through your system shell
+- **Services**: manage system services (systemd/launchd/Windows Services); start/stop/restart, enable/disable, view logs, filter by state
 - **Notifications**: system-level notifications for actions
 - Context-aware fuzzy search `/` per section
 - Dynamic header: username, time, arch, detected shell, CPU cores and average usage
@@ -136,10 +138,16 @@ You can also add entries in-app:
 - Built-in commands: `cd`, `pwd`, `clear`, `exit`, `export`, `history`
 - External command execution through system shell (PowerShell on Windows, bash/zsh on Unix)
 - Command history with exit status indicators (✓/✗)
-- Working directory tracking
-- History search functionality
-- Clear history option
+- Working directory tracking, history search, clear history
 - Shows current prompt with user@hostname:dir format
+
+**Services Module**
+- Cross-platform: systemd (Linux), launchd (macOS), Windows Services
+- Start, stop, restart, enable, disable services
+- View service logs (systemd only)
+- Filter by state (running/stopped/failed) or toggle user/system scope
+- Displays state, PID, memory usage, enabled status, description, uptime
+- Search services by name or description
 
 ### Notes
 - Uses `sysinfo` for processes, `which` for PATH resolution, and `crossterm`/`ratatui` for TUI.
