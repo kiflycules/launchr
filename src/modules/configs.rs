@@ -340,10 +340,89 @@ impl ConfigsModule {
             anyhow::bail!("Config file does not exist: {:?}", config.path);
         }
 
-        let file_path = config.path.to_string_lossy().to_string();
-        
+        let editor = self.get_editor(&config);
+        let path_str = config.path.to_str().unwrap_or("");
+
+        #[cfg(windows)]
+        {
+            // On Windows, always use 'start' to open in a new window
+            // This prevents blocking and UI conflicts
+            Command::new("cmd")
+                .args(&["/C", "start", &editor, path_str])
+                .spawn()
+                .map_err(|e| anyhow::anyhow!(
+                    "Failed to open editor '{}': {}.\n\nTips:\n- Set EDITOR environment variable\n- Configure editor in config\n- Ensure editor is in PATH",
+                    editor, e
+                ))?;
+        }
+
+        #[cfg(unix)]
+        {
+            // On Unix, try to detect and use the appropriate terminal emulator
+            let term_editors = ["code", "subl", "atom", "gedit", "kate"];
+
+            if term_editors.iter().any(|&e| editor.contains(e)) {
+                // GUI editors can be spawned directly
+                Command::new(&editor)
+                    .arg(&config.path)
+                    .spawn()
+                    .map_err(|e| anyhow::anyhow!("Failed to open editor '{}': {}", editor, e))?;
+            } else {
+                // Terminal editors need to be opened in a new terminal window
+                let terminals = [
+                    ("x-terminal-emulator", vec!["-e", &editor, path_str]),
+                    ("gnome-terminal", vec!["--", &editor, path_str]),
+                    ("konsole", vec!["-e", &editor, path_str]),
+                    ("xterm", vec!["-e", &editor, path_str]),
+                    ("alacritty", vec!["-e", &editor, path_str]),
+                    ("kitty", vec!["-e", &editor, path_str]),
+                ];
+
+                let mut opened = false;
+                for (term, args) in &terminals {
+                    if Command::new(term).args(args).spawn().is_ok() {
+                        opened = true;
+                        break;
+                    }
+                }
+
+                if !opened {
+                    anyhow::bail!("No suitable terminal emulator found. Please install one of: gnome-terminal, konsole, xterm, alacritty, or kitty");
+                }
+            }
+        }
+
+        #[cfg(target_os = "macos")]
+        {
+            // macOS: use 'open -a' for GUI apps or spawn terminal for terminal editors
+            if editor.contains("vim") || editor.contains("nano") || editor.contains("emacs") {
+                // Open terminal editors in a new Terminal.app window
+                let script = format!(
+                    "tell application \"Terminal\" to do script \"{} {}\"",
+                    editor, path_str
+                );
+                Command::new("osascript")
+                    .arg("-e")
+                    .arg(&script)
+                    .spawn()
+                    .map_err(|e| anyhow::anyhow!("Failed to open editor in terminal: {}", e))?;
+            } else {
+                // GUI editors can use 'open'
+                Command::new("open")
+                    .arg("-a")
+                    .arg(&editor)
+                    .arg(&config.path)
+                    .spawn()
+                    .map_err(|e| anyhow::anyhow!("Failed to open editor '{}': {}", editor, e))?;
+            }
+        }
+
+        Ok(())
+    }
+
+    fn get_editor(&self, config: &ConfigEntry) -> String {
         // Use the config's specific editor if set, otherwise fall back to environment or defaults
-        let editor = if let Some(ref custom_editor) = config.editor {
+        if let Some(ref custom_editor) = config.editor {
             custom_editor.clone()
         } else if let Ok(env_editor) = std::env::var("EDITOR") {
             env_editor
@@ -353,12 +432,7 @@ impl ConfigsModule {
             { "notepad.exe".to_string() }
             #[cfg(not(target_os = "windows"))]
             { "nano".to_string() }
-        };
-
-        // Try to open the file in the editor
-        let _ = Command::new(&editor).arg(&file_path).spawn();
-
-        Ok(())
+        }
     }
 
 
