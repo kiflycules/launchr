@@ -528,12 +528,12 @@ impl ConfigsModule {
 
     fn highlight_json(&self, content: &str) -> Vec<(Style, String)> {
         let mut result = Vec::new();
-        let mut chars = content.chars().peekable();
+        let chars = content.chars().peekable();
         let mut current_token = String::new();
         let mut in_string = false;
         let mut escape_next = false;
 
-        while let Some(ch) = chars.next() {
+        for ch in chars {
             if escape_next {
                 current_token.push(ch);
                 escape_next = false;
@@ -647,7 +647,7 @@ impl ConfigsModule {
                         current_token.push(ch);
                         escape_next = true;
                     }
-                    ':' if !in_string && chars.peek().map_or(true, |&c| c.is_whitespace()) => {
+                    ':' if !in_string && chars.peek().is_none_or(|&c| c.is_whitespace()) => {
                         if !current_token.is_empty() {
                             result.push((Style::default().fg(Color::Cyan), current_token.clone()));
                             current_token.clear();
