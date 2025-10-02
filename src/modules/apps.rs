@@ -43,8 +43,13 @@ impl AppsModule {
                                     #[cfg(windows)]
                                     {
                                         let lower = name.to_ascii_lowercase();
-                                        let is_exe = lower.ends_with(".exe") || lower.ends_with(".bat") || lower.ends_with(".cmd") || lower.ends_with(".ps1");
-                                        if !is_exe { continue; }
+                                        let is_exe = lower.ends_with(".exe")
+                                            || lower.ends_with(".bat")
+                                            || lower.ends_with(".cmd")
+                                            || lower.ends_with(".ps1");
+                                        if !is_exe {
+                                            continue;
+                                        }
                                     }
 
                                     if which::which(name).is_ok() {
@@ -78,7 +83,8 @@ impl AppsModule {
                 }
             })
             .collect();
-        self.running_processes.sort_by(|a, b| b.cpu_usage.partial_cmp(&a.cpu_usage).unwrap());
+        self.running_processes
+            .sort_by(|a, b| b.cpu_usage.partial_cmp(&a.cpu_usage).unwrap());
         Ok(())
     }
 
@@ -101,7 +107,7 @@ impl AppsModule {
                 .arg("-15")
                 .arg(pid.to_string())
                 .output()?;
-            
+
             if !output.status.success() {
                 // Try SIGKILL if SIGTERM fails
                 let _ = StdCommand::new("kill")
@@ -117,12 +123,16 @@ impl AppsModule {
             let output = StdCommand::new("taskkill")
                 .args(&["/PID", &pid.to_string(), "/F"])
                 .output()?;
-            
+
             if !output.status.success() {
-                anyhow::bail!("Failed to terminate process {}: {}", pid, String::from_utf8_lossy(&output.stderr));
+                anyhow::bail!(
+                    "Failed to terminate process {}: {}",
+                    pid,
+                    String::from_utf8_lossy(&output.stderr)
+                );
             }
         }
-        
+
         Ok(())
     }
 
@@ -142,5 +152,3 @@ impl AppsModule {
         (cores, avg)
     }
 }
-
-

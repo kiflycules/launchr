@@ -63,16 +63,18 @@ impl Config {
         if !path.exists() {
             let default = ConfigFile::default();
             let toml = toml::to_string_pretty(&default)?;
-            if let Some(parent) = path.parent() { fs::create_dir_all(parent)?; }
+            if let Some(parent) = path.parent() {
+                fs::create_dir_all(parent)?;
+            }
             fs::write(&path, toml)?;
         }
         let content = fs::read_to_string(&path).with_context(|| format!("Reading {:?}", &path))?;
         let cfg: ConfigFile = toml::from_str(&content).with_context(|| "Parsing config TOML")?;
-        Ok(Self { 
-            path: path.clone(), 
+        Ok(Self {
+            path: path.clone(),
             config_directory: path.parent().unwrap_or(&PathBuf::from(".")).to_path_buf(),
-            bookmarks: cfg.bookmarks, 
-            ssh_hosts: cfg.ssh_hosts, 
+            bookmarks: cfg.bookmarks,
+            ssh_hosts: cfg.ssh_hosts,
             scripts: cfg.scripts,
             git_search_paths: cfg.git_search_paths,
             scratchpad_editor: cfg.scratchpad.editor,
@@ -81,33 +83,60 @@ impl Config {
     }
 
     fn save(&self) -> Result<()> {
-        let cfg = ConfigFile { 
-            bookmarks: self.bookmarks.clone(), 
-            ssh_hosts: self.ssh_hosts.clone(), 
+        let cfg = ConfigFile {
+            bookmarks: self.bookmarks.clone(),
+            ssh_hosts: self.ssh_hosts.clone(),
             scripts: self.scripts.clone(),
             git_search_paths: self.git_search_paths.clone(),
             scratchpad: ScratchpadConfig {
                 editor: self.scratchpad_editor.clone(),
-                directory: self.scratchpad_directory.as_ref().map(|p| p.display().to_string()),
+                directory: self
+                    .scratchpad_directory
+                    .as_ref()
+                    .map(|p| p.display().to_string()),
             },
         };
         let toml = toml::to_string_pretty(&cfg)?;
-        if let Some(parent) = self.path.parent() { fs::create_dir_all(parent)?; }
+        if let Some(parent) = self.path.parent() {
+            fs::create_dir_all(parent)?;
+        }
         fs::write(&self.path, toml)?;
         Ok(())
     }
 
-    pub fn add_bookmark(&mut self, b: BookmarkConfig) -> Result<()> { self.bookmarks.push(b); self.save() }
-    pub fn remove_bookmark(&mut self, index: usize) -> Result<()> { if index < self.bookmarks.len() { self.bookmarks.remove(index); } self.save() }
-    pub fn add_ssh_host(&mut self, h: SSHHostConfig) -> Result<()> { self.ssh_hosts.push(h); self.save() }
-    pub fn remove_ssh_host(&mut self, index: usize) -> Result<()> { if index < self.ssh_hosts.len() { self.ssh_hosts.remove(index); } self.save() }
-    pub fn add_script(&mut self, s: ScriptConfig) -> Result<()> { self.scripts.push(s); self.save() }
-    pub fn remove_script(&mut self, index: usize) -> Result<()> { if index < self.scripts.len() { self.scripts.remove(index); } self.save() }
+    pub fn add_bookmark(&mut self, b: BookmarkConfig) -> Result<()> {
+        self.bookmarks.push(b);
+        self.save()
+    }
+    pub fn remove_bookmark(&mut self, index: usize) -> Result<()> {
+        if index < self.bookmarks.len() {
+            self.bookmarks.remove(index);
+        }
+        self.save()
+    }
+    pub fn add_ssh_host(&mut self, h: SSHHostConfig) -> Result<()> {
+        self.ssh_hosts.push(h);
+        self.save()
+    }
+    pub fn remove_ssh_host(&mut self, index: usize) -> Result<()> {
+        if index < self.ssh_hosts.len() {
+            self.ssh_hosts.remove(index);
+        }
+        self.save()
+    }
+    pub fn add_script(&mut self, s: ScriptConfig) -> Result<()> {
+        self.scripts.push(s);
+        self.save()
+    }
+    pub fn remove_script(&mut self, index: usize) -> Result<()> {
+        if index < self.scripts.len() {
+            self.scripts.remove(index);
+        }
+        self.save()
+    }
 }
 
 fn config_path() -> Result<PathBuf> {
     let base = config_dir().context("Could not determine config directory")?;
     Ok(base.join("launchr").join("config.toml"))
 }
-
-

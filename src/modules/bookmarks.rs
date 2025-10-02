@@ -12,7 +12,11 @@ pub struct Bookmark {
 
 impl From<BookmarkConfig> for Bookmark {
     fn from(config: BookmarkConfig) -> Self {
-        Self { name: config.name, path: config.path, bookmark_type: config.bookmark_type }
+        Self {
+            name: config.name,
+            path: config.path,
+            bookmark_type: config.bookmark_type,
+        }
     }
 }
 
@@ -24,11 +28,16 @@ pub struct BookmarksModule {
 impl BookmarksModule {
     pub fn new(config: &Config) -> Self {
         let bookmarks = config.bookmarks.iter().map(|b| b.clone().into()).collect();
-        Self { bookmarks, config: config.clone() }
+        Self {
+            bookmarks,
+            config: config.clone(),
+        }
     }
 
     pub fn open_bookmark(&self, index: usize) -> Result<()> {
-        if index >= self.bookmarks.len() { return Ok(()); }
+        if index >= self.bookmarks.len() {
+            return Ok(());
+        }
         let bookmark = &self.bookmarks[index];
         match bookmark.bookmark_type.as_str() {
             "url" => self.open_url(&bookmark.path)?,
@@ -41,42 +50,76 @@ impl BookmarksModule {
 
     fn open_url(&self, _url: &str) -> Result<()> {
         #[cfg(target_os = "macos")]
-        { Command::new("open").arg(_url).spawn()?; }
+        {
+            Command::new("open").arg(_url).spawn()?;
+        }
         #[cfg(target_os = "linux")]
-        { Command::new("xdg-open").arg(_url).spawn()?; }
+        {
+            Command::new("xdg-open").arg(_url).spawn()?;
+        }
         #[cfg(target_os = "windows")]
-        { Command::new("cmd").args(&["/C", "start", _url]).spawn()?; }
+        {
+            Command::new("cmd").args(&["/C", "start", _url]).spawn()?;
+        }
         Ok(())
     }
 
     fn open_directory(&self, _path: &str) -> Result<()> {
         #[cfg(target_os = "macos")]
-        { Command::new("open").arg(_path).spawn()?; }
+        {
+            Command::new("open").arg(_path).spawn()?;
+        }
         #[cfg(target_os = "linux")]
-        { Command::new("xdg-open").arg(_path).spawn()?; }
+        {
+            Command::new("xdg-open").arg(_path).spawn()?;
+        }
         #[cfg(target_os = "windows")]
-        { Command::new("explorer").arg(_path).spawn()?; }
+        {
+            Command::new("explorer").arg(_path).spawn()?;
+        }
         Ok(())
     }
 
     fn open_file(&self, _path: &str) -> Result<()> {
         #[cfg(target_os = "macos")]
-        { Command::new("open").arg(_path).spawn()?; }
+        {
+            Command::new("open").arg(_path).spawn()?;
+        }
         #[cfg(target_os = "linux")]
-        { Command::new("xdg-open").arg(_path).spawn()?; }
+        {
+            Command::new("xdg-open").arg(_path).spawn()?;
+        }
         #[cfg(target_os = "windows")]
-        { Command::new("cmd").args(&["/C", "start", "", _path]).spawn()?; }
+        {
+            Command::new("cmd")
+                .args(&["/C", "start", "", _path])
+                .spawn()?;
+        }
         Ok(())
     }
 
     pub fn add_from_string(&mut self, input: &str) -> Result<()> {
         let parts: Vec<&str> = input.split('|').collect();
-        if parts.len() < 2 { anyhow::bail!("Invalid format. Use: name|path|type"); }
+        if parts.len() < 2 {
+            anyhow::bail!("Invalid format. Use: name|path|type");
+        }
         let name = parts[0].trim().to_string();
         let path = parts[1].trim().to_string();
-        let bookmark_type = if parts.len() > 2 { parts[2].trim().to_string() } else { "file".to_string() };
-        let bookmark = Bookmark { name: name.clone(), path: path.clone(), bookmark_type: bookmark_type.clone() };
-        let config_bookmark = BookmarkConfig { name, path, bookmark_type };
+        let bookmark_type = if parts.len() > 2 {
+            parts[2].trim().to_string()
+        } else {
+            "file".to_string()
+        };
+        let bookmark = Bookmark {
+            name: name.clone(),
+            path: path.clone(),
+            bookmark_type: bookmark_type.clone(),
+        };
+        let config_bookmark = BookmarkConfig {
+            name,
+            path,
+            bookmark_type,
+        };
         self.bookmarks.push(bookmark);
         self.config.add_bookmark(config_bookmark)?;
         Ok(())
@@ -89,5 +132,3 @@ impl BookmarksModule {
         }
     }
 }
-
-

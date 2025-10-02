@@ -63,7 +63,7 @@ impl ScratchpadModule {
                             .ok()
                             .map(|t| DateTime::<Local>::from(t))
                             .unwrap_or_else(Local::now);
-                        
+
                         let modified_at = metadata
                             .modified()
                             .ok()
@@ -95,17 +95,17 @@ impl ScratchpadModule {
         };
 
         let filepath = self.scratchpad_dir.join(&filename);
-        
+
         // Create empty file
         fs::write(&filepath, "")?;
-        
+
         Ok(filepath)
     }
 
     pub fn open_in_editor(&self, path: &PathBuf) -> Result<()> {
         let editor = self.get_editor();
         let path_str = path.to_str().unwrap_or("");
-        
+
         #[cfg(windows)]
         {
             // On Windows, always use 'start' to open in a new window
@@ -123,7 +123,7 @@ impl ScratchpadModule {
         {
             // On Unix, try to detect and use the appropriate terminal emulator
             let term_editors = ["code", "subl", "atom", "gedit", "kate"];
-            
+
             if term_editors.iter().any(|&e| editor.contains(e)) {
                 // GUI editors can be spawned directly
                 Command::new(&editor)
@@ -140,18 +140,15 @@ impl ScratchpadModule {
                     ("alacritty", vec!["-e", &editor, path_str]),
                     ("kitty", vec!["-e", &editor, path_str]),
                 ];
-                
+
                 let mut spawned = false;
                 for (term, args) in &terminals {
-                    if let Ok(_) = Command::new(term)
-                        .args(args)
-                        .spawn()
-                    {
+                    if let Ok(_) = Command::new(term).args(args).spawn() {
                         spawned = true;
                         break;
                     }
                 }
-                
+
                 if !spawned {
                     return Err(anyhow::anyhow!(
                         "Could not find a terminal emulator to open '{}'. \
@@ -169,7 +166,10 @@ impl ScratchpadModule {
             // macOS: use 'open -a' for GUI apps or spawn terminal for terminal editors
             if editor.contains("vim") || editor.contains("nano") || editor.contains("emacs") {
                 // Open terminal editors in a new Terminal.app window
-                let script = format!("tell application \"Terminal\" to do script \"{} {}\"", editor, path_str);
+                let script = format!(
+                    "tell application \"Terminal\" to do script \"{} {}\"",
+                    editor, path_str
+                );
                 Command::new("osascript")
                     .arg("-e")
                     .arg(&script)
@@ -199,7 +199,7 @@ impl ScratchpadModule {
         if index >= self.notes.len() {
             return Ok(());
         }
-        
+
         let note = &self.notes[index];
         self.open_in_editor(&note.path)?;
         Ok(())
@@ -235,13 +235,13 @@ impl ScratchpadModule {
 
         let note = &self.notes[index];
         let content = fs::read_to_string(&note.path)?;
-        
+
         // Try to set clipboard
         #[cfg(target_os = "linux")]
         {
             use std::io::Write;
             use std::process::Stdio;
-            
+
             if let Ok(mut child) = Command::new("xclip")
                 .arg("-selection")
                 .arg("clipboard")
@@ -259,11 +259,8 @@ impl ScratchpadModule {
         {
             use std::io::Write;
             use std::process::Stdio;
-            
-            if let Ok(mut child) = Command::new("pbcopy")
-                .stdin(Stdio::piped())
-                .spawn()
-            {
+
+            if let Ok(mut child) = Command::new("pbcopy").stdin(Stdio::piped()).spawn() {
                 if let Some(stdin) = child.stdin.as_mut() {
                     let _ = stdin.write_all(content.as_bytes());
                 }
@@ -274,7 +271,10 @@ impl ScratchpadModule {
         #[cfg(target_os = "windows")]
         {
             let _ = Command::new("powershell")
-                .args(&["-command", &format!("Set-Clipboard -Value @'\n{}\n'@", content)])
+                .args(&[
+                    "-command",
+                    &format!("Set-Clipboard -Value @'\n{}\n'@", content),
+                ])
                 .output();
         }
 
@@ -301,14 +301,14 @@ impl ScratchpadModule {
                 if note.name.to_lowercase().contains(&query_lower) {
                     return true;
                 }
-                
+
                 // Search in content
                 if let Ok(content) = fs::read_to_string(&note.path) {
                     if content.to_lowercase().contains(&query_lower) {
                         return true;
                     }
                 }
-                
+
                 false
             })
             .map(|(i, _)| i)
@@ -347,7 +347,11 @@ impl ScratchpadModule {
         {
             let editors = ["code", "subl", "nano", "vim", "vi", "open -e"];
             for editor in &editors {
-                if Command::new("which").arg(editor.split_whitespace().next().unwrap()).output().is_ok() {
+                if Command::new("which")
+                    .arg(editor.split_whitespace().next().unwrap())
+                    .output()
+                    .is_ok()
+                {
                     return editor.to_string();
                 }
             }
@@ -359,18 +363,18 @@ impl ScratchpadModule {
             // Check for common Windows editors
             // Prefer GUI editors that open in new windows
             let editors = [
-                "notepad++.exe",      // Notepad++ (best default for Windows)
-                "code.cmd",           // VS Code
-                "code",               // VS Code alternate
-                "subl.exe",           // Sublime Text
-                "sublime_text.exe",   // Sublime Text alternate
-                "atom.exe",           // Atom
-                "gvim.exe",           // GVim (GUI vim)
-                "notepad.exe",        // Windows Notepad (fallback)
-                "nvim-qt.exe",        // Neovim GUI
-                "vim.exe",            // Vim for Windows (terminal)
+                "notepad++.exe",    // Notepad++ (best default for Windows)
+                "code.cmd",         // VS Code
+                "code",             // VS Code alternate
+                "subl.exe",         // Sublime Text
+                "sublime_text.exe", // Sublime Text alternate
+                "atom.exe",         // Atom
+                "gvim.exe",         // GVim (GUI vim)
+                "notepad.exe",      // Windows Notepad (fallback)
+                "nvim-qt.exe",      // Neovim GUI
+                "vim.exe",          // Vim for Windows (terminal)
             ];
-            
+
             for editor in &editors {
                 // Check if editor exists by running 'where' and checking exit code
                 if let Ok(output) = Command::new("where").arg(editor).output() {
@@ -379,7 +383,7 @@ impl ScratchpadModule {
                     }
                 }
             }
-            
+
             // Ultimate fallback - notepad always exists on Windows
             "notepad.exe".to_string()
         }
@@ -398,7 +402,7 @@ impl ScratchpadModule {
 
         let note = &self.notes[index];
         let content = fs::read_to_string(&note.path)?;
-        
+
         if content.len() <= max_chars {
             Ok(content)
         } else {
@@ -406,4 +410,3 @@ impl ScratchpadModule {
         }
     }
 }
-

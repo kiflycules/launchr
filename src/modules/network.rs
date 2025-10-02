@@ -69,21 +69,20 @@ impl NetworkModule {
 
     pub fn refresh_connections(&mut self) -> Result<()> {
         self.connections.clear();
-        
+
         #[cfg(target_os = "linux")]
         {
             // Use ss command for better performance than netstat
-            let output = Command::new("ss")
-                .args(&["-tupan"])
-                .output();
-            
+            let output = Command::new("ss").args(&["-tupan"]).output();
+
             if let Ok(output) = output {
                 if output.status.success() {
                     let stdout = String::from_utf8_lossy(&output.stdout);
                     for line in stdout.lines().skip(1) {
                         if let Some(conn) = self.parse_ss_line(line) {
-                            if self.filter_state.is_none() || 
-                               self.filter_state.as_ref() == Some(&conn.state) {
+                            if self.filter_state.is_none()
+                                || self.filter_state.as_ref() == Some(&conn.state)
+                            {
                                 self.connections.push(conn);
                             }
                         }
@@ -94,46 +93,44 @@ impl NetworkModule {
             // Fallback to netstat
             self.use_netstat()?;
         }
-        
+
         #[cfg(target_os = "macos")]
         {
             self.use_netstat()?;
         }
-        
+
         #[cfg(target_os = "windows")]
         {
-            let output = Command::new("netstat")
-                .args(&["-ano"])
-                .output()?;
-            
+            let output = Command::new("netstat").args(&["-ano"]).output()?;
+
             if output.status.success() {
                 let stdout = String::from_utf8_lossy(&output.stdout);
                 for line in stdout.lines().skip(4) {
                     if let Some(conn) = self.parse_netstat_windows(line) {
-                        if self.filter_state.is_none() || 
-                           self.filter_state.as_ref() == Some(&conn.state) {
+                        if self.filter_state.is_none()
+                            || self.filter_state.as_ref() == Some(&conn.state)
+                        {
                             self.connections.push(conn);
                         }
                     }
                 }
             }
         }
-        
+
         Ok(())
     }
 
     #[allow(dead_code)]
     fn use_netstat(&mut self) -> Result<()> {
-        let output = Command::new("netstat")
-            .args(&["-an"])
-            .output()?;
-        
+        let output = Command::new("netstat").args(&["-an"]).output()?;
+
         if output.status.success() {
             let stdout = String::from_utf8_lossy(&output.stdout);
             for line in stdout.lines() {
                 if let Some(conn) = self.parse_netstat_line(line) {
-                    if self.filter_state.is_none() || 
-                       self.filter_state.as_ref() == Some(&conn.state) {
+                    if self.filter_state.is_none()
+                        || self.filter_state.as_ref() == Some(&conn.state)
+                    {
                         self.connections.push(conn);
                     }
                 }
@@ -145,20 +142,26 @@ impl NetworkModule {
     #[cfg(target_os = "linux")]
     fn parse_ss_line(&self, line: &str) -> Option<NetworkConnection> {
         let parts: Vec<&str> = line.split_whitespace().collect();
-        if parts.len() < 5 { return None; }
-        
+        if parts.len() < 5 {
+            return None;
+        }
+
         let protocol = parts[0].to_uppercase();
         let state = parts[1].to_string();
         let local_addr = parts[4].to_string();
-        let remote_addr = if parts.len() > 5 { parts[5].to_string() } else { "*:*".to_string() };
-        
+        let remote_addr = if parts.len() > 5 {
+            parts[5].to_string()
+        } else {
+            "*:*".to_string()
+        };
+
         // Try to extract PID from users column
         let (pid, process_name) = if parts.len() > 6 {
             self.extract_pid_from_users(parts[6])
         } else {
             (None, String::from("?"))
         };
-        
+
         Some(NetworkConnection {
             protocol,
             local_addr,
@@ -176,11 +179,12 @@ impl NetworkModule {
             let pid_str = &users_field[pid_start + 4..];
             if let Some(pid_end) = pid_str.find(',') {
                 let pid = pid_str[..pid_end].parse::<u32>().ok();
-                
+
                 // Extract process name
                 if let Some(name_start) = users_field.find("((\"") {
                     if let Some(name_end) = users_field[name_start + 3..].find('\"') {
-                        let name = users_field[name_start + 3..name_start + 3 + name_end].to_string();
+                        let name =
+                            users_field[name_start + 3..name_start + 3 + name_end].to_string();
                         return (pid, name);
                     }
                 }
@@ -193,17 +197,19 @@ impl NetworkModule {
     #[allow(dead_code)]
     fn parse_netstat_line(&self, line: &str) -> Option<NetworkConnection> {
         let parts: Vec<&str> = line.split_whitespace().collect();
-        if parts.len() < 4 { return None; }
-        
+        if parts.len() < 4 {
+            return None;
+        }
+
         let protocol = parts[0].to_uppercase();
         if !protocol.starts_with("TCP") && !protocol.starts_with("UDP") {
             return None;
         }
-        
+
         let local_addr = parts.get(3)?.to_string();
         let remote_addr = parts.get(4).unwrap_or(&"*:*").to_string();
         let state = parts.get(5).unwrap_or(&"").to_string();
-        
+
         Some(NetworkConnection {
             protocol,
             local_addr,
@@ -217,13 +223,15 @@ impl NetworkModule {
     #[cfg(target_os = "windows")]
     fn parse_netstat_windows(&self, line: &str) -> Option<NetworkConnection> {
         let parts: Vec<&str> = line.split_whitespace().collect();
-        if parts.len() < 4 { return None; }
-        
+        if parts.len() < 4 {
+            return None;
+        }
+
         let protocol = parts[0].to_uppercase();
         if protocol != "TCP" && protocol != "UDP" {
             return None;
         }
-        
+
         let local_addr = parts[1].to_string();
         let remote_addr = parts[2].to_string();
         let state = if protocol == "TCP" && parts.len() > 3 {
@@ -231,7 +239,7 @@ impl NetworkModule {
         } else {
             String::from("-")
         };
-        
+
         let pid = if protocol == "TCP" && parts.len() > 4 {
             parts[4].parse::<u32>().ok()
         } else if protocol == "UDP" && parts.len() > 3 {
@@ -239,9 +247,9 @@ impl NetworkModule {
         } else {
             None
         };
-        
+
         let process_name = String::from("?");
-        
+
         Some(NetworkConnection {
             protocol,
             local_addr,
@@ -254,14 +262,14 @@ impl NetworkModule {
 
     pub fn refresh_interfaces(&mut self) -> Result<()> {
         self.interfaces.clear();
-        
+
         #[cfg(target_os = "linux")]
         {
             // Use ip command
             let output = Command::new("ip")
                 .args(&["-brief", "addr", "show"])
                 .output()?;
-            
+
             if output.status.success() {
                 let stdout = String::from_utf8_lossy(&output.stdout);
                 for line in stdout.lines() {
@@ -271,47 +279,48 @@ impl NetworkModule {
                 }
             }
         }
-        
+
         #[cfg(target_os = "macos")]
         {
             // Use ifconfig
-            let output = Command::new("ifconfig")
-                .output()?;
-            
+            let output = Command::new("ifconfig").output()?;
+
             if output.status.success() {
                 let stdout = String::from_utf8_lossy(&output.stdout);
                 self.parse_ifconfig(&stdout);
             }
         }
-        
+
         #[cfg(target_os = "windows")]
         {
             // Use ipconfig
-            let output = Command::new("ipconfig")
-                .args(&["/all"])
-                .output()?;
-            
+            let output = Command::new("ipconfig").args(&["/all"]).output()?;
+
             if output.status.success() {
                 let stdout = String::from_utf8_lossy(&output.stdout);
                 self.parse_ipconfig(&stdout);
             }
         }
-        
+
         Ok(())
     }
 
     #[cfg(target_os = "linux")]
     fn parse_ip_addr_line(&self, line: &str) -> Option<NetworkInterface> {
         let parts: Vec<&str> = line.split_whitespace().collect();
-        if parts.len() < 2 { return None; }
-        
+        if parts.len() < 2 {
+            return None;
+        }
+
         let name = parts[0].to_string();
         let status = parts[1].to_lowercase();
-        let ip_addresses: Vec<String> = parts.iter().skip(2)
+        let ip_addresses: Vec<String> = parts
+            .iter()
+            .skip(2)
             .filter(|s| s.contains('.') || s.contains(':'))
             .map(|s| s.split('/').next().unwrap_or(s).to_string())
             .collect();
-        
+
         Some(NetworkInterface {
             name,
             ip_addresses,
@@ -326,16 +335,16 @@ impl NetworkModule {
     #[allow(dead_code)]
     fn parse_ifconfig(&mut self, output: &str) {
         let mut current_interface: Option<NetworkInterface> = None;
-        
+
         for line in output.lines() {
             let trimmed = line.trim();
-            
+
             // New interface starts
             if !line.starts_with('\t') && !line.starts_with(' ') && line.contains(':') {
                 if let Some(iface) = current_interface.take() {
                     self.interfaces.push(iface);
                 }
-                
+
                 let name = line.split(':').next().unwrap_or("").to_string();
                 current_interface = Some(NetworkInterface {
                     name,
@@ -357,7 +366,7 @@ impl NetworkModule {
                 }
             }
         }
-        
+
         if let Some(iface) = current_interface {
             self.interfaces.push(iface);
         }
@@ -366,20 +375,25 @@ impl NetworkModule {
     #[cfg(target_os = "windows")]
     fn parse_ipconfig(&mut self, output: &str) {
         let mut current_interface: Option<NetworkInterface> = None;
-        
+
         for line in output.lines() {
             let trimmed = line.trim();
-            
+
             // New adapter starts
             if line.starts_with("Ethernet adapter") || line.starts_with("Wireless LAN adapter") {
                 if let Some(iface) = current_interface.take() {
                     self.interfaces.push(iface);
                 }
-                
-                let name = line.split(':').next()
-                    .map(|s| s.replace("Ethernet adapter ", "").replace("Wireless LAN adapter ", ""))
+
+                let name = line
+                    .split(':')
+                    .next()
+                    .map(|s| {
+                        s.replace("Ethernet adapter ", "")
+                            .replace("Wireless LAN adapter ", "")
+                    })
                     .unwrap_or_else(|| "Unknown".to_string());
-                
+
                 current_interface = Some(NetworkInterface {
                     name,
                     ip_addresses: Vec::new(),
@@ -401,7 +415,7 @@ impl NetworkModule {
                 }
             }
         }
-        
+
         if let Some(iface) = current_interface {
             self.interfaces.push(iface);
         }
@@ -409,13 +423,11 @@ impl NetworkModule {
 
     pub fn refresh_listening_ports(&mut self) -> Result<()> {
         self.listening_ports.clear();
-        
+
         #[cfg(target_os = "linux")]
         {
-            let output = Command::new("ss")
-                .args(&["-tulpn"])
-                .output()?;
-            
+            let output = Command::new("ss").args(&["-tulpn"]).output()?;
+
             if output.status.success() {
                 let stdout = String::from_utf8_lossy(&output.stdout);
                 for line in stdout.lines().skip(1) {
@@ -425,13 +437,11 @@ impl NetworkModule {
                 }
             }
         }
-        
+
         #[cfg(target_os = "windows")]
         {
-            let output = Command::new("netstat")
-                .args(&["-ano"])
-                .output()?;
-            
+            let output = Command::new("netstat").args(&["-ano"]).output()?;
+
             if output.status.success() {
                 let stdout = String::from_utf8_lossy(&output.stdout);
                 for line in stdout.lines().skip(4) {
@@ -443,13 +453,11 @@ impl NetworkModule {
                 }
             }
         }
-        
+
         #[cfg(target_os = "macos")]
         {
-            let output = Command::new("netstat")
-                .args(&["-anv"])
-                .output()?;
-            
+            let output = Command::new("netstat").args(&["-anv"]).output()?;
+
             if output.status.success() {
                 let stdout = String::from_utf8_lossy(&output.stdout);
                 for line in stdout.lines() {
@@ -461,27 +469,29 @@ impl NetworkModule {
                 }
             }
         }
-        
+
         Ok(())
     }
 
     #[cfg(target_os = "linux")]
     fn parse_ss_listening(&self, line: &str) -> Option<PortUsage> {
         let parts: Vec<&str> = line.split_whitespace().collect();
-        if parts.len() < 5 { return None; }
-        
+        if parts.len() < 5 {
+            return None;
+        }
+
         let protocol = parts[0].to_uppercase();
         let local_addr = parts[4];
-        
+
         // Extract port from address (format: *:port or ip:port)
         let port = local_addr.split(':').last()?.parse::<u16>().ok()?;
-        
+
         let (pid, process_name) = if parts.len() > 6 {
             self.extract_pid_from_users(parts[6])
         } else {
             (None, String::from("?"))
         };
-        
+
         Some(PortUsage {
             port,
             protocol,
@@ -493,13 +503,15 @@ impl NetworkModule {
     #[cfg(target_os = "windows")]
     fn parse_netstat_listening_windows(&self, line: &str) -> Option<PortUsage> {
         let parts: Vec<&str> = line.split_whitespace().collect();
-        if parts.len() < 5 { return None; }
-        
+        if parts.len() < 5 {
+            return None;
+        }
+
         let protocol = parts[0].to_uppercase();
         let local_addr = parts[1];
         let port = local_addr.split(':').last()?.parse::<u16>().ok()?;
         let pid = parts[4].parse::<u32>().ok()?;
-        
+
         Some(PortUsage {
             port,
             protocol,
@@ -511,12 +523,14 @@ impl NetworkModule {
     #[cfg(target_os = "macos")]
     fn parse_netstat_listening_macos(&self, line: &str) -> Option<PortUsage> {
         let parts: Vec<&str> = line.split_whitespace().collect();
-        if parts.len() < 4 { return None; }
-        
+        if parts.len() < 4 {
+            return None;
+        }
+
         let protocol = parts[0].to_uppercase();
         let local_addr = parts[3];
         let port = local_addr.split('.').last()?.parse::<u16>().ok()?;
-        
+
         Some(PortUsage {
             port,
             protocol,
@@ -538,4 +552,3 @@ impl NetworkModule {
         self.filter_state = None;
     }
 }
-

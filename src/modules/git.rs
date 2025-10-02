@@ -23,14 +23,18 @@ pub struct GitModule {
 impl GitModule {
     pub fn new(config_paths: &[String]) -> Self {
         let mut search_paths = vec![];
-        
+
         // Use configured paths if provided
         if !config_paths.is_empty() {
             for path_str in config_paths {
                 let path = if path_str == "~" || path_str == "~/" || path_str == "~\\" {
                     dirs::home_dir().unwrap_or_else(|| PathBuf::from("/"))
                 } else if path_str.starts_with("~/") {
-                    if let Some(home) = dirs::home_dir() { home.join(&path_str[2..]) } else { PathBuf::from(path_str) }
+                    if let Some(home) = dirs::home_dir() {
+                        home.join(&path_str[2..])
+                    } else {
+                        PathBuf::from(path_str)
+                    }
                 } else {
                     PathBuf::from(path_str)
                 };
@@ -47,7 +51,7 @@ impl GitModule {
                 search_paths.push(home.join("code"));
             }
         }
-        
+
         Self {
             repos: Vec::new(),
             search_paths,
@@ -56,7 +60,7 @@ impl GitModule {
 
     pub fn scan_repositories(&mut self) -> Result<()> {
         self.repos.clear();
-        
+
         // Clone search_paths to avoid borrow checker issues
         let search_paths = self.search_paths.clone();
         for search_path in &search_paths {
@@ -71,23 +75,25 @@ impl GitModule {
                 self.scan_directory(search_path, 3)?; // Max depth of 3
             }
         }
-        
+
         // Sort by name
         self.repos.sort_by(|a, b| a.name.cmp(&b.name));
-        
+
         Ok(())
     }
 
     fn scan_directory(&mut self, dir: &Path, max_depth: usize) -> Result<()> {
-        if max_depth == 0 { return Ok(()); }
-        
+        if max_depth == 0 {
+            return Ok(());
+        }
+
         if dir.join(".git").exists() {
             if let Some(repo) = self.analyze_repo(dir) {
                 self.repos.push(repo);
             }
             return Ok(()); // Don't scan subdirs of git repos
         }
-        
+
         // Scan subdirectories
         if let Ok(entries) = fs::read_dir(dir) {
             for entry in entries.flatten() {
@@ -98,8 +104,14 @@ impl GitModule {
                     } else if file_type.is_symlink() {
                         // Follow directory symlinks
                         if let Ok(target) = fs::read_link(entry.path()) {
-                            let resolved = if target.is_absolute() { target } else { dir.join(target) };
-                            if resolved.is_dir() { next_path = Some(resolved); }
+                            let resolved = if target.is_absolute() {
+                                target
+                            } else {
+                                dir.join(target)
+                            };
+                            if resolved.is_dir() {
+                                next_path = Some(resolved);
+                            }
                         }
                     }
                     if let Some(path) = next_path {
@@ -113,16 +125,17 @@ impl GitModule {
                 }
             }
         }
-        
+
         Ok(())
     }
 
     fn analyze_repo(&self, path: &Path) -> Option<GitRepo> {
         let name = path.file_name()?.to_string_lossy().to_string();
-        
+
         // Get current branch
         let branch = Command::new("git")
-            .arg("-C").arg(path)
+            .arg("-C")
+            .arg(path)
             .args(&["branch", "--show-current"])
             .output()
             .ok()
@@ -134,42 +147,48 @@ impl GitModule {
                 }
             })
             .unwrap_or_else(|| "detached".to_string());
-        
+
         // Get status
         let status_output_opt = Command::new("git")
-            .arg("-C").arg(path)
+            .arg("-C")
+            .arg(path)
             .args(&["status", "--porcelain"])
             .output()
             .ok();
-        
+
         let uncommitted_changes = if let Some(status_output) = status_output_opt {
             if status_output.status.success() {
                 String::from_utf8_lossy(&status_output.stdout)
-                .lines()
-                .filter(|l| !l.is_empty())
-                .count()
-            } else { 0 }
+                    .lines()
+                    .filter(|l| !l.is_empty())
+                    .count()
+            } else {
+                0
+            }
         } else {
             0
         };
-        
+
         // Get ahead/behind info
         let (ahead, behind) = if !branch.is_empty() && branch != "detached" {
             let upstream_output = Command::new("git")
-                .arg("-C").arg(path)
-                .args(&["rev-list", "--count", "--left-right", &format!("origin/{}...HEAD", branch)])
+                .arg("-C")
+                .arg(path)
+                .args(&[
+                    "rev-list",
+                    "--count",
+                    "--left-right",
+                    &format!("origin/{}...HEAD", branch),
+                ])
                 .output()
                 .ok();
-            
+
             if let Some(output) = upstream_output {
                 if output.status.success() {
                     let counts = String::from_utf8_lossy(&output.stdout);
                     let parts: Vec<&str> = counts.trim().split('\t').collect();
                     if parts.len() == 2 {
-                        (
-                            parts[1].parse().unwrap_or(0),
-                            parts[0].parse().unwrap_or(0),
-                        )
+                        (parts[1].parse().unwrap_or(0), parts[0].parse().unwrap_or(0))
                     } else {
                         (0, 0)
                     }
@@ -182,7 +201,7 @@ impl GitModule {
         } else {
             (0, 0)
         };
-        
+
         let status = if uncommitted_changes > 0 {
             "modified".to_string()
         } else if ahead > 0 {
@@ -192,10 +211,11 @@ impl GitModule {
         } else {
             "clean".to_string()
         };
-        
+
         // Get last commit message
         let last_commit = Command::new("git")
-            .arg("-C").arg(path)
+            .arg("-C")
+            .arg(path)
             .args(&["log", "-1", "--pretty=%s"])
             .output()
             .ok()
@@ -207,7 +227,7 @@ impl GitModule {
                 }
             })
             .unwrap_or_else(|| "No commits".to_string());
-        
+
         Some(GitRepo {
             name,
             path: path.to_path_buf(),
@@ -224,12 +244,11 @@ impl GitModule {
         // Re-analyze existing repos without full scan
         // Collect paths first to avoid borrow checker issues
         let paths: Vec<PathBuf> = self.repos.iter().map(|r| r.path.clone()).collect();
-        
+
         // Analyze all repos first
-        let updates: Vec<Option<GitRepo>> = paths.iter()
-            .map(|path| self.analyze_repo(path))
-            .collect();
-        
+        let updates: Vec<Option<GitRepo>> =
+            paths.iter().map(|path| self.analyze_repo(path)).collect();
+
         // Then update the repos
         for (i, updated) in updates.into_iter().enumerate() {
             if let Some(updated) = updated {
@@ -248,12 +267,14 @@ impl GitModule {
 
     #[allow(dead_code)]
     pub fn open_in_editor(&self, index: usize) -> Result<()> {
-        if index >= self.repos.len() { return Ok(()); }
+        if index >= self.repos.len() {
+            return Ok(());
+        }
         let repo = &self.repos[index];
-        
+
         // Try common editors
         let editors = vec!["code", "subl", "atom", "nvim", "vim", "nano", "emacs"];
-        
+
         for editor in editors {
             if Command::new(editor)
                 .arg(repo.path.to_str().unwrap_or(""))
@@ -263,81 +284,103 @@ impl GitModule {
                 return Ok(());
             }
         }
-        
+
         // Fallback to file manager
         #[cfg(target_os = "linux")]
-        { Command::new("xdg-open").arg(&repo.path).spawn()?; }
+        {
+            Command::new("xdg-open").arg(&repo.path).spawn()?;
+        }
         #[cfg(target_os = "macos")]
-        { Command::new("open").arg(&repo.path).spawn()?; }
+        {
+            Command::new("open").arg(&repo.path).spawn()?;
+        }
         #[cfg(target_os = "windows")]
-        { Command::new("explorer").arg(&repo.path).spawn()?; }
-        
+        {
+            Command::new("explorer").arg(&repo.path).spawn()?;
+        }
+
         Ok(())
     }
 
     #[allow(dead_code)]
     pub fn pull(&self, index: usize) -> Result<String> {
-        if index >= self.repos.len() { return Ok(String::new()); }
+        if index >= self.repos.len() {
+            return Ok(String::new());
+        }
         let repo = &self.repos[index];
-        
+
         let output = Command::new("git")
             .args(&["-C", repo.path.to_str().unwrap_or(""), "pull"])
             .output()?;
-        
+
         Ok(String::from_utf8_lossy(&output.stdout).to_string())
     }
 
     #[allow(dead_code)]
     pub fn push(&self, index: usize) -> Result<String> {
-        if index >= self.repos.len() { return Ok(String::new()); }
+        if index >= self.repos.len() {
+            return Ok(String::new());
+        }
         let repo = &self.repos[index];
-        
+
         let output = Command::new("git")
             .args(&["-C", repo.path.to_str().unwrap_or(""), "push"])
             .output()?;
-        
+
         Ok(String::from_utf8_lossy(&output.stdout).to_string())
     }
 
     #[allow(dead_code)]
     pub fn fetch(&self, index: usize) -> Result<String> {
-        if index >= self.repos.len() { return Ok(String::new()); }
+        if index >= self.repos.len() {
+            return Ok(String::new());
+        }
         let repo = &self.repos[index];
-        
+
         let output = Command::new("git")
             .args(&["-C", repo.path.to_str().unwrap_or(""), "fetch"])
             .output()?;
-        
+
         Ok(String::from_utf8_lossy(&output.stdout).to_string())
     }
 
     #[allow(dead_code)]
     pub fn commit(&self, index: usize, message: &str) -> Result<String> {
-        if index >= self.repos.len() { return Ok(String::new()); }
+        if index >= self.repos.len() {
+            return Ok(String::new());
+        }
         let repo = &self.repos[index];
-        
+
         // Stage all changes
         Command::new("git")
             .args(&["-C", repo.path.to_str().unwrap_or(""), "add", "."])
             .output()?;
-        
+
         // Commit
         let output = Command::new("git")
-            .args(&["-C", repo.path.to_str().unwrap_or(""), "commit", "-m", message])
+            .args(&[
+                "-C",
+                repo.path.to_str().unwrap_or(""),
+                "commit",
+                "-m",
+                message,
+            ])
             .output()?;
-        
+
         Ok(String::from_utf8_lossy(&output.stdout).to_string())
     }
 
     #[allow(dead_code)]
     pub fn switch_branch(&self, index: usize, branch: &str) -> Result<String> {
-        if index >= self.repos.len() { return Ok(String::new()); }
+        if index >= self.repos.len() {
+            return Ok(String::new());
+        }
         let repo = &self.repos[index];
-        
+
         let output = Command::new("git")
             .args(&["-C", repo.path.to_str().unwrap_or(""), "checkout", branch])
             .output()?;
-        
+
         if output.status.success() {
             Ok(String::from_utf8_lossy(&output.stdout).to_string())
         } else {
@@ -347,14 +390,16 @@ impl GitModule {
 
     #[allow(dead_code)]
     pub fn get_branches(&self, index: usize) -> Vec<String> {
-        if index >= self.repos.len() { return vec![]; }
+        if index >= self.repos.len() {
+            return vec![];
+        }
         let repo = &self.repos[index];
-        
+
         let output = Command::new("git")
             .args(&["-C", repo.path.to_str().unwrap_or(""), "branch", "-a"])
             .output()
             .ok();
-        
+
         if let Some(output) = output {
             if output.status.success() {
                 return String::from_utf8_lossy(&output.stdout)
@@ -364,19 +409,21 @@ impl GitModule {
                     .collect();
             }
         }
-        
+
         vec![]
     }
 
     #[allow(dead_code)]
     pub fn stash(&self, index: usize) -> Result<String> {
-        if index >= self.repos.len() { return Ok(String::new()); }
+        if index >= self.repos.len() {
+            return Ok(String::new());
+        }
         let repo = &self.repos[index];
-        
+
         let output = Command::new("git")
             .args(&["-C", repo.path.to_str().unwrap_or(""), "stash"])
             .output()?;
-        
+
         Ok(String::from_utf8_lossy(&output.stdout).to_string())
     }
 
@@ -387,4 +434,3 @@ impl GitModule {
         }
     }
 }
-

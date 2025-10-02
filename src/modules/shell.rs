@@ -24,7 +24,7 @@ pub struct ShellModule {
 impl ShellModule {
     pub fn new() -> Result<Self> {
         let current_dir = env::current_dir().unwrap_or_else(|_| PathBuf::from("/"));
-        
+
         Ok(Self {
             history: VecDeque::new(),
             current_dir,
@@ -35,7 +35,7 @@ impl ShellModule {
 
     pub async fn execute_command(&mut self, command: &str) -> Result<CommandHistory> {
         let command = command.trim();
-        
+
         // Handle built-in commands
         if let Some(result) = self.handle_builtin(command).await? {
             return Ok(result);
@@ -43,10 +43,10 @@ impl ShellModule {
 
         // Execute external command
         let result = self.execute_external(command).await?;
-        
+
         // Add to history
         self.add_to_history(result.clone());
-        
+
         Ok(result)
     }
 
@@ -57,7 +57,7 @@ impl ShellModule {
         }
 
         let cmd = parts[0];
-        
+
         match cmd {
             "cd" => {
                 let new_dir = if parts.len() > 1 {
@@ -135,12 +135,13 @@ impl ShellModule {
                     let var_def = parts[1..].join(" ");
                     if let Some((key, value)) = var_def.split_once('=') {
                         // SAFETY: Setting environment variables is inherently unsafe in multi-threaded
-                        // programs. This is acceptable here as it's a deliberate user action in a 
+                        // programs. This is acceptable here as it's a deliberate user action in a
                         // shell-like environment. Users should be aware of potential race conditions.
                         unsafe {
                             env::set_var(key, value);
                         }
-                        self.environment_vars.push((key.to_string(), value.to_string()));
+                        self.environment_vars
+                            .push((key.to_string(), value.to_string()));
                         let result = CommandHistory {
                             command: command.to_string(),
                             output: format!("Set {}={}", key, value),
@@ -154,13 +155,14 @@ impl ShellModule {
                 }
             }
             "history" => {
-                let output = self.history
+                let output = self
+                    .history
                     .iter()
                     .enumerate()
                     .map(|(i, h)| format!("{:4} {}", i, h.command))
                     .collect::<Vec<_>>()
                     .join("\n");
-                
+
                 let result = CommandHistory {
                     command: command.to_string(),
                     output,
@@ -179,7 +181,7 @@ impl ShellModule {
 
     async fn execute_external(&self, command: &str) -> Result<CommandHistory> {
         let (shell, shell_arg) = self.get_shell();
-        
+
         let child = Command::new(&shell)
             .arg(&shell_arg)
             .arg(command)
@@ -189,10 +191,10 @@ impl ShellModule {
             .spawn()?;
 
         let output = child.wait_with_output()?;
-        
+
         let stdout = String::from_utf8_lossy(&output.stdout).to_string();
         let stderr = String::from_utf8_lossy(&output.stderr).to_string();
-        
+
         let combined_output = if stderr.is_empty() {
             stdout
         } else if stdout.is_empty() {
@@ -210,7 +212,6 @@ impl ShellModule {
         })
     }
 
-
     fn get_shell(&self) -> (String, String) {
         #[cfg(unix)]
         {
@@ -226,7 +227,7 @@ impl ShellModule {
 
     fn add_to_history(&mut self, entry: CommandHistory) {
         self.history.push_front(entry);
-        
+
         // Limit history size
         while self.history.len() > self.max_history {
             self.history.pop_back();
@@ -253,13 +254,14 @@ impl ShellModule {
         let user = env::var("USER")
             .or_else(|_| env::var("USERNAME"))
             .unwrap_or_else(|_| "user".to_string());
-        
+
         let hostname = hostname::get()
             .ok()
             .and_then(|h| h.into_string().ok())
             .unwrap_or_else(|| "localhost".to_string());
-        
-        let dir = self.current_dir
+
+        let dir = self
+            .current_dir
             .file_name()
             .and_then(|n| n.to_str())
             .unwrap_or("/");
@@ -267,4 +269,3 @@ impl ShellModule {
         format!("{}@{}:{}$ ", user, hostname, dir)
     }
 }
-

@@ -1,9 +1,9 @@
 use ratatui::{
+    Frame,
     layout::{Constraint, Direction, Layout, Rect},
     style::{Color, Modifier, Style},
     text::{Line, Span},
     widgets::{Block, Borders, List, ListItem, Paragraph, Wrap},
-    Frame,
 };
 
 use crate::app::{App, AppState, MenuSection};
@@ -81,13 +81,20 @@ fn draw_title(f: &mut Frame, area: Rect, app: &App) {
         crate::modules::history::ShellKind::Unknown => "shell",
     };
 
-    let mut header = format!("{} | {} | {} | shell: {}", username, time_str, arch, shell_label);
-    if cores > 0 { header.push_str(&format!(" | CPU: {}c {:.0}%", cores, cpu_avg)); }
-
-
+    let mut header = format!(
+        "{} | {} | {} | shell: {}",
+        username, time_str, arch, shell_label
+    );
+    if cores > 0 {
+        header.push_str(&format!(" | CPU: {}c {:.0}%", cores, cpu_avg));
+    }
 
     let title = Paragraph::new(header)
-        .style(Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD))
+        .style(
+            Style::default()
+                .fg(Color::Cyan)
+                .add_modifier(Modifier::BOLD),
+        )
         .block(Block::default().borders(Borders::ALL));
     f.render_widget(title, area);
 }
@@ -111,10 +118,13 @@ fn draw_menu(f: &mut Frame, app: &App, area: Rect) {
         ("[", "Notifications", MenuSection::Notifications),
     ];
 
-    let items: Vec<ListItem> = menu_items.iter()
+    let items: Vec<ListItem> = menu_items
+        .iter()
         .map(|(key, name, section)| {
             let style = if *section == app.current_section {
-                Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)
+                Style::default()
+                    .fg(Color::Yellow)
+                    .add_modifier(Modifier::BOLD)
             } else {
                 Style::default()
             };
@@ -160,11 +170,18 @@ fn draw_dashboard(f: &mut Frame, app: &App, area: Rect) {
         .skip(start)
         .take(end.saturating_sub(start))
         .map(|(i, p)| {
-            let style = if i == app.selected_index { Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD) } else { Style::default() };
+            let style = if i == app.selected_index {
+                Style::default()
+                    .fg(Color::Yellow)
+                    .add_modifier(Modifier::BOLD)
+            } else {
+                Style::default()
+            };
             ListItem::new(format!(
                 "{:<6} {:<20} CPU: {:.1}% MEM: {:.1} MB",
                 p.pid, p.name, p.cpu_usage, p.memory_usage
-            )).style(style)
+            ))
+            .style(style)
         })
         .collect();
 
@@ -180,16 +197,26 @@ fn draw_dashboard(f: &mut Frame, app: &App, area: Rect) {
         .active_sessions
         .iter()
         .map(|s| {
-            let status_icon = if s.status == "Connected" { "🟢" } else { "🔴" };
+            let status_icon = if s.status == "Connected" {
+                "🟢"
+            } else {
+                "🔴"
+            };
             ListItem::new(format!("{} {} - {}", status_icon, s.name, s.status))
         })
         .collect();
 
-    let ssh_block = List::new(ssh_sessions)
-        .block(Block::default().title("Active SSH Sessions").borders(Borders::ALL));
+    let ssh_block = List::new(ssh_sessions).block(
+        Block::default()
+            .title("Active SSH Sessions")
+            .borders(Borders::ALL),
+    );
     if app.ssh_module.active_sessions.is_empty() {
-        let empty = Paragraph::new("No active SSH sessions")
-            .block(Block::default().title("Active SSH Sessions").borders(Borders::ALL));
+        let empty = Paragraph::new("No active SSH sessions").block(
+            Block::default()
+                .title("Active SSH Sessions")
+                .borders(Borders::ALL),
+        );
         f.render_widget(empty, chunks[1]);
     } else {
         f.render_widget(ssh_block, chunks[1]);
@@ -210,11 +237,17 @@ fn draw_dashboard(f: &mut Frame, app: &App, area: Rect) {
         })
         .collect();
 
-    let notif_block = List::new(notifs)
-        .block(Block::default().title("Recent Notifications").borders(Borders::ALL));
+    let notif_block = List::new(notifs).block(
+        Block::default()
+            .title("Recent Notifications")
+            .borders(Borders::ALL),
+    );
     if app.notifications_module.notifications.is_empty() {
-        let empty = Paragraph::new("No notifications yet")
-            .block(Block::default().title("Recent Notifications").borders(Borders::ALL));
+        let empty = Paragraph::new("No notifications yet").block(
+            Block::default()
+                .title("Recent Notifications")
+                .borders(Borders::ALL),
+        );
         f.render_widget(empty, chunks[2]);
     } else {
         f.render_widget(notif_block, chunks[2]);
@@ -231,7 +264,11 @@ fn draw_apps(f: &mut Frame, app: &App, area: Rect) {
     let available_apps = &app.apps_module.available_apps;
     let window_height = (chunks[0].height.saturating_sub(2)) as usize;
     let available_len = available_apps.len();
-    let selected_in_apps = if app.selected_index < available_len { app.selected_index } else { available_len.saturating_sub(1) };
+    let selected_in_apps = if app.selected_index < available_len {
+        app.selected_index
+    } else {
+        available_len.saturating_sub(1)
+    };
     let start = if available_len == 0 {
         0
     } else {
@@ -242,13 +279,17 @@ fn draw_apps(f: &mut Frame, app: &App, area: Rect) {
     };
     let end = usize::min(start + window_height, available_len);
 
-    let items: Vec<ListItem> = available_apps.get(start..end).unwrap_or(&[])
+    let items: Vec<ListItem> = available_apps
+        .get(start..end)
+        .unwrap_or(&[])
         .iter()
         .enumerate()
         .map(|(offset, name)| {
             let i = start + offset;
             let style = if i == app.selected_index {
-                Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)
+                Style::default()
+                    .fg(Color::Yellow)
+                    .add_modifier(Modifier::BOLD)
             } else {
                 Style::default()
             };
@@ -257,13 +298,23 @@ fn draw_apps(f: &mut Frame, app: &App, area: Rect) {
         .collect();
 
     if available_apps.is_empty() {
-        let empty = if app.pending_initial_scan { "Scanning PATH..." } else { "No executables found in PATH" };
-        let p = Paragraph::new(empty)
-            .block(Block::default().title("Available Apps").borders(Borders::ALL));
+        let empty = if app.pending_initial_scan {
+            "Scanning PATH..."
+        } else {
+            "No executables found in PATH"
+        };
+        let p = Paragraph::new(empty).block(
+            Block::default()
+                .title("Available Apps")
+                .borders(Borders::ALL),
+        );
         f.render_widget(p, chunks[0]);
     } else {
-        let apps_list = List::new(items)
-            .block(Block::default().title("Available Apps (Enter to launch)").borders(Borders::ALL));
+        let apps_list = List::new(items).block(
+            Block::default()
+                .title("Available Apps (Enter to launch)")
+                .borders(Borders::ALL),
+        );
         f.render_widget(apps_list, chunks[0]);
     }
 
@@ -271,7 +322,11 @@ fn draw_apps(f: &mut Frame, app: &App, area: Rect) {
     let running_processes = &app.apps_module.running_processes;
     let process_window_height = (chunks[1].height.saturating_sub(2)) as usize;
     let proc_len = running_processes.len();
-    let process_selection = if app.selected_index >= available_len { app.selected_index - available_len } else { 0 };
+    let process_selection = if app.selected_index >= available_len {
+        app.selected_index - available_len
+    } else {
+        0
+    };
     let process_start = if proc_len == 0 {
         0
     } else {
@@ -282,25 +337,33 @@ fn draw_apps(f: &mut Frame, app: &App, area: Rect) {
     };
     let process_end = usize::min(process_start + process_window_height, proc_len);
 
-    let running: Vec<ListItem> = running_processes.get(process_start..process_end).unwrap_or(&[])
+    let running: Vec<ListItem> = running_processes
+        .get(process_start..process_end)
+        .unwrap_or(&[])
         .iter()
         .enumerate()
         .map(|(offset, p)| {
             let i = available_len + process_start + offset;
             let style = if i == app.selected_index {
-                Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)
+                Style::default()
+                    .fg(Color::Yellow)
+                    .add_modifier(Modifier::BOLD)
             } else {
                 Style::default()
             };
             ListItem::new(format!(
                 "{:<6} {:<20} CPU: {:.1}% MEM: {:.1} MB",
                 p.pid, p.name, p.cpu_usage, p.memory_usage
-            )).style(style)
+            ))
+            .style(style)
         })
         .collect();
 
-    let running_block = List::new(running)
-        .block(Block::default().title("Running Processes (s to stop)").borders(Borders::ALL));
+    let running_block = List::new(running).block(
+        Block::default()
+            .title("Running Processes (s to stop)")
+            .borders(Borders::ALL),
+    );
     f.render_widget(running_block, chunks[1]);
 }
 
@@ -312,7 +375,9 @@ fn draw_bookmarks(f: &mut Frame, app: &App, area: Rect) {
         .enumerate()
         .map(|(i, b)| {
             let style = if i == app.selected_index {
-                Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)
+                Style::default()
+                    .fg(Color::Yellow)
+                    .add_modifier(Modifier::BOLD)
             } else {
                 Style::default()
             };
@@ -330,8 +395,11 @@ fn draw_bookmarks(f: &mut Frame, app: &App, area: Rect) {
             .block(Block::default().title("Bookmarks").borders(Borders::ALL));
         f.render_widget(empty, area);
     } else {
-        let list = List::new(items)
-            .block(Block::default().title("Bookmarks (n: new, d: delete, Enter: open)").borders(Borders::ALL));
+        let list = List::new(items).block(
+            Block::default()
+                .title("Bookmarks (n: new, d: delete, Enter: open)")
+                .borders(Borders::ALL),
+        );
         f.render_widget(list, area);
     }
 }
@@ -344,7 +412,9 @@ fn draw_clipboard(f: &mut Frame, app: &App, area: Rect) {
         .enumerate()
         .map(|(i, e)| {
             let style = if i == app.selected_index {
-                Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)
+                Style::default()
+                    .fg(Color::Yellow)
+                    .add_modifier(Modifier::BOLD)
             } else {
                 Style::default()
             };
@@ -360,7 +430,14 @@ fn draw_clipboard(f: &mut Frame, app: &App, area: Rect) {
             } else {
                 e.content.clone()
             };
-            ListItem::new(format!("{} {}{} ({})", icon, pinned_icon, truncated_content, e.timestamp.format("%H:%M:%S"))).style(style)
+            ListItem::new(format!(
+                "{} {}{} ({})",
+                icon,
+                pinned_icon,
+                truncated_content,
+                e.timestamp.format("%H:%M:%S")
+            ))
+            .style(style)
         })
         .collect();
 
@@ -369,8 +446,11 @@ fn draw_clipboard(f: &mut Frame, app: &App, area: Rect) {
             .block(Block::default().title("Clipboard").borders(Borders::ALL));
         f.render_widget(empty, area);
     } else {
-        let list = List::new(items)
-            .block(Block::default().title("Clipboard (Enter: copy, r: refresh, p: pin)").borders(Borders::ALL));
+        let list = List::new(items).block(
+            Block::default()
+                .title("Clipboard (Enter: copy, r: refresh, p: pin)")
+                .borders(Borders::ALL),
+        );
         f.render_widget(list, area);
     }
 }
@@ -390,7 +470,9 @@ fn draw_docker(f: &mut Frame, app: &App, area: Rect) {
                 .enumerate()
                 .map(|(i, c)| {
                     let style = if i == app.selected_index {
-                        Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)
+                        Style::default()
+                            .fg(Color::Yellow)
+                            .add_modifier(Modifier::BOLD)
                     } else {
                         Style::default()
                     };
@@ -406,10 +488,14 @@ fn draw_docker(f: &mut Frame, app: &App, area: Rect) {
                     } else {
                         c.name.clone()
                     };
-                    ListItem::new(format!("{} {} - {} ({})", status_icon, truncated_name, c.image, c.status)).style(style)
+                    ListItem::new(format!(
+                        "{} {} - {} ({})",
+                        status_icon, truncated_name, c.image, c.status
+                    ))
+                    .style(style)
                 })
                 .collect();
-            
+
             if docker_items.is_empty() {
                 vec![ListItem::new("No containers found. Press 'r' to refresh")]
             } else {
@@ -424,7 +510,9 @@ fn draw_docker(f: &mut Frame, app: &App, area: Rect) {
                 .enumerate()
                 .map(|(i, img)| {
                     let style = if i == app.selected_index {
-                        Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)
+                        Style::default()
+                            .fg(Color::Yellow)
+                            .add_modifier(Modifier::BOLD)
                     } else {
                         Style::default()
                     };
@@ -433,21 +521,25 @@ fn draw_docker(f: &mut Frame, app: &App, area: Rect) {
                     } else {
                         img.repository.clone()
                     };
-                    ListItem::new(format!("📦 {}:{} - {}", truncated_repo, img.tag, img.size)).style(style)
+                    ListItem::new(format!("📦 {}:{} - {}", truncated_repo, img.tag, img.size))
+                        .style(style)
                 })
                 .collect();
-            
+
             if docker_items.is_empty() {
                 vec![ListItem::new("No images found. Press 'r' to refresh")]
             } else {
                 docker_items
             }
         }
-        _ => vec![ListItem::new("View not implemented yet")]
+        _ => vec![ListItem::new("View not implemented yet")],
     };
 
-    let list = List::new(items)
-        .block(Block::default().title("Docker (Enter: exec, r: refresh, v: switch view)").borders(Borders::ALL));
+    let list = List::new(items).block(
+        Block::default()
+            .title("Docker (Enter: exec, r: refresh, v: switch view)")
+            .borders(Borders::ALL),
+    );
     f.render_widget(list, chunks[0]);
 
     // Status bar showing current view and options
@@ -460,11 +552,10 @@ fn draw_docker(f: &mut Frame, app: &App, area: Rect) {
             }
         }
         crate::modules::docker::DockerView::Images => "View: Images",
-        _ => "View: Other"
+        _ => "View: Other",
     };
-    
-    let status = Paragraph::new(status_text)
-        .block(Block::default().borders(Borders::ALL));
+
+    let status = Paragraph::new(status_text).block(Block::default().borders(Borders::ALL));
     f.render_widget(status, chunks[1]);
 }
 
@@ -481,7 +572,9 @@ fn draw_ssh(f: &mut Frame, app: &App, area: Rect) {
         .enumerate()
         .map(|(i, h)| {
             let style = if i == app.selected_index {
-                Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)
+                Style::default()
+                    .fg(Color::Yellow)
+                    .add_modifier(Modifier::BOLD)
             } else {
                 Style::default()
             };
@@ -494,8 +587,11 @@ fn draw_ssh(f: &mut Frame, app: &App, area: Rect) {
             .block(Block::default().title("SSH Hosts").borders(Borders::ALL));
         f.render_widget(empty, chunks[0]);
     } else {
-        let list = List::new(items)
-            .block(Block::default().title("SSH Hosts (n: new, d: delete, Enter: connect)").borders(Borders::ALL));
+        let list = List::new(items).block(
+            Block::default()
+                .title("SSH Hosts (n: new, d: delete, Enter: connect)")
+                .borders(Borders::ALL),
+        );
         f.render_widget(list, chunks[0]);
     }
 
@@ -504,8 +600,16 @@ fn draw_ssh(f: &mut Frame, app: &App, area: Rect) {
         .active_sessions
         .iter()
         .map(|s| {
-            let status_color = if s.status == "Connected" { Color::Green } else { Color::Red };
-            let status_icon = if s.status == "Connected" { "🟢" } else { "🔴" };
+            let status_color = if s.status == "Connected" {
+                Color::Green
+            } else {
+                Color::Red
+            };
+            let status_icon = if s.status == "Connected" {
+                "🟢"
+            } else {
+                "🔴"
+            };
             ListItem::new(Line::from(vec![
                 Span::raw(status_icon),
                 Span::raw(" "),
@@ -520,8 +624,11 @@ fn draw_ssh(f: &mut Frame, app: &App, area: Rect) {
         })
         .collect();
 
-    let sessions_block = List::new(sessions)
-        .block(Block::default().title("Active Sessions").borders(Borders::ALL));
+    let sessions_block = List::new(sessions).block(
+        Block::default()
+            .title("Active Sessions")
+            .borders(Borders::ALL),
+    );
     f.render_widget(sessions_block, chunks[1]);
 }
 
@@ -538,11 +645,17 @@ fn draw_scripts(f: &mut Frame, app: &App, area: Rect) {
         .enumerate()
         .map(|(i, s)| {
             let style = if i == app.selected_index {
-                Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)
+                Style::default()
+                    .fg(Color::Yellow)
+                    .add_modifier(Modifier::BOLD)
             } else {
                 Style::default()
             };
-            let status = if app.scripts_module.is_running(i) { "🔄" } else { "▶" };
+            let status = if app.scripts_module.is_running(i) {
+                "🔄"
+            } else {
+                "▶"
+            };
             ListItem::new(format!("{} {} - {}", status, s.name, s.description)).style(style)
         })
         .collect();
@@ -552,8 +665,11 @@ fn draw_scripts(f: &mut Frame, app: &App, area: Rect) {
             .block(Block::default().title("Scripts").borders(Borders::ALL));
         f.render_widget(empty, chunks[0]);
     } else {
-        let list = List::new(items)
-            .block(Block::default().title("Scripts (n: new, d: delete, Enter: run)").borders(Borders::ALL));
+        let list = List::new(items).block(
+            Block::default()
+                .title("Scripts (n: new, d: delete, Enter: run)")
+                .borders(Borders::ALL),
+        );
         f.render_widget(list, chunks[0]);
     }
 
@@ -563,7 +679,11 @@ fn draw_scripts(f: &mut Frame, app: &App, area: Rect) {
             "Name: {}\nCommand: {}\nDescription: {}",
             script.name, script.command, script.description
         ))
-        .block(Block::default().title("Details (t to toggle)").borders(Borders::ALL));
+        .block(
+            Block::default()
+                .title("Details (t to toggle)")
+                .borders(Borders::ALL),
+        );
         f.render_widget(detail, chunks[1]);
     } else {
         let help = Paragraph::new("Press 't' to toggle details")
@@ -580,7 +700,9 @@ fn draw_notifications(f: &mut Frame, app: &App, area: Rect) {
         .enumerate()
         .map(|(i, n)| {
             let style = if i == app.selected_index {
-                Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)
+                Style::default()
+                    .fg(Color::Yellow)
+                    .add_modifier(Modifier::BOLD)
             } else {
                 Style::default()
             };
@@ -602,12 +724,18 @@ fn draw_notifications(f: &mut Frame, app: &App, area: Rect) {
         .collect();
 
     if items.is_empty() {
-        let empty = Paragraph::new("No notifications yet")
-            .block(Block::default().title("Notifications").borders(Borders::ALL));
+        let empty = Paragraph::new("No notifications yet").block(
+            Block::default()
+                .title("Notifications")
+                .borders(Borders::ALL),
+        );
         f.render_widget(empty, area);
     } else {
-        let list = List::new(items)
-            .block(Block::default().title("Notifications").borders(Borders::ALL));
+        let list = List::new(items).block(
+            Block::default()
+                .title("Notifications")
+                .borders(Borders::ALL),
+        );
         f.render_widget(list, area);
     }
 }
@@ -617,16 +745,24 @@ fn draw_history(f: &mut Frame, app: &App, area: Rect) {
     let total = app.shell_module.entries.len();
     let start = app.selected_index.saturating_sub(window_height / 2);
     let end = usize::min(start + window_height, total);
-    let any_ts = app.shell_module.entries.iter().any(|e| e.timestamp.is_some());
-
-    let items: Vec<ListItem> = app
+    let any_ts = app
         .shell_module
-        .entries[start..end]
+        .entries
+        .iter()
+        .any(|e| e.timestamp.is_some());
+
+    let items: Vec<ListItem> = app.shell_module.entries[start..end]
         .iter()
         .enumerate()
         .map(|(offset, e)| {
             let i = start + offset;
-            let style = if i == app.selected_index { Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD) } else { Style::default() };
+            let style = if i == app.selected_index {
+                Style::default()
+                    .fg(Color::Yellow)
+                    .add_modifier(Modifier::BOLD)
+            } else {
+                Style::default()
+            };
             let ts = e.timestamp.map(|t| t.format("%H:%M").to_string());
             let label = match (any_ts, ts) {
                 (_, Some(ts)) => format!("[{}] {}", ts, e.command),
@@ -638,12 +774,18 @@ fn draw_history(f: &mut Frame, app: &App, area: Rect) {
         .collect();
 
     if total == 0 {
-        let empty = ratatui::widgets::Paragraph::new("No shell history detected")
-            .block(Block::default().title("History (Enter to run, r to refresh)").borders(Borders::ALL));
+        let empty = ratatui::widgets::Paragraph::new("No shell history detected").block(
+            Block::default()
+                .title("History (Enter to run, r to refresh)")
+                .borders(Borders::ALL),
+        );
         f.render_widget(empty, area);
     } else {
-        let list = List::new(items)
-            .block(Block::default().title("History (Enter to run, r to refresh)").borders(Borders::ALL));
+        let list = List::new(items).block(
+            Block::default()
+                .title("History (Enter to run, r to refresh)")
+                .borders(Borders::ALL),
+        );
         f.render_widget(list, area);
     }
 }
@@ -656,11 +798,13 @@ fn draw_git(f: &mut Frame, app: &App, area: Rect) {
         .enumerate()
         .map(|(i, repo)| {
             let style = if i == app.selected_index {
-                Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)
+                Style::default()
+                    .fg(Color::Yellow)
+                    .add_modifier(Modifier::BOLD)
             } else {
                 Style::default()
             };
-            
+
             let status_icon = match repo.status.as_str() {
                 "clean" => "✓",
                 "modified" => "✎",
@@ -668,7 +812,7 @@ fn draw_git(f: &mut Frame, app: &App, area: Rect) {
                 "behind" => "↓",
                 _ => "•",
             };
-            
+
             let status_color = match repo.status.as_str() {
                 "clean" => Color::Green,
                 "modified" => Color::Yellow,
@@ -676,46 +820,56 @@ fn draw_git(f: &mut Frame, app: &App, area: Rect) {
                 "behind" => Color::Magenta,
                 _ => Color::White,
             };
-            
+
             let mut parts = vec![
                 Span::styled(status_icon, Style::default().fg(status_color)),
                 Span::raw(" "),
                 Span::raw(format!("{:<25}", repo.name)),
-                Span::styled(format!(" [{}] ", repo.branch), Style::default().fg(Color::Cyan)),
+                Span::styled(
+                    format!(" [{}] ", repo.branch),
+                    Style::default().fg(Color::Cyan),
+                ),
             ];
-            
+
             if repo.uncommitted_changes > 0 {
                 parts.push(Span::styled(
                     format!("±{} ", repo.uncommitted_changes),
                     Style::default().fg(Color::Yellow),
                 ));
             }
-            
+
             if repo.ahead > 0 {
                 parts.push(Span::styled(
                     format!("↑{} ", repo.ahead),
                     Style::default().fg(Color::Green),
                 ));
             }
-            
+
             if repo.behind > 0 {
                 parts.push(Span::styled(
                     format!("↓{} ", repo.behind),
                     Style::default().fg(Color::Red),
                 ));
             }
-            
+
             ListItem::new(Line::from(parts)).style(style)
         })
         .collect();
 
     if items.is_empty() {
         let empty = Paragraph::new("No git repositories found. Press 'S' to scan for repositories")
-            .block(Block::default().title("Git Repositories").borders(Borders::ALL));
+            .block(
+                Block::default()
+                    .title("Git Repositories")
+                    .borders(Borders::ALL),
+            );
         f.render_widget(empty, area);
     } else {
-        let list = List::new(items)
-            .block(Block::default().title("Git Repositories (Enter: open, r: refresh, S: scan)").borders(Borders::ALL));
+        let list = List::new(items).block(
+            Block::default()
+                .title("Git Repositories (Enter: open, r: refresh, S: scan)")
+                .borders(Borders::ALL),
+        );
         f.render_widget(list, area);
     }
 }
@@ -735,39 +889,45 @@ fn draw_network(f: &mut Frame, app: &App, area: Rect) {
                 .enumerate()
                 .map(|(i, conn)| {
                     let style = if i == app.selected_index {
-                        Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)
+                        Style::default()
+                            .fg(Color::Yellow)
+                            .add_modifier(Modifier::BOLD)
                     } else {
                         Style::default()
                     };
-                    
+
                     let state_color = match conn.state.to_uppercase().as_str() {
                         "ESTABLISHED" | "ESTAB" => Color::Green,
                         "LISTEN" => Color::Cyan,
                         "TIME_WAIT" | "CLOSE_WAIT" => Color::Yellow,
                         _ => Color::White,
                     };
-                    
+
                     let truncated_local = if conn.local_addr.len() > 22 {
                         format!("{}...", &conn.local_addr[..19])
                     } else {
                         format!("{:<22}", conn.local_addr)
                     };
-                    
+
                     let truncated_remote = if conn.remote_addr.len() > 22 {
                         format!("{}...", &conn.remote_addr[..19])
                     } else {
                         format!("{:<22}", conn.remote_addr)
                     };
-                    
+
                     ListItem::new(Line::from(vec![
                         Span::raw(format!("{:<6} ", conn.protocol)),
                         Span::raw(format!("{} → {} ", truncated_local, truncated_remote)),
-                        Span::styled(format!("{:<12}", conn.state), Style::default().fg(state_color)),
+                        Span::styled(
+                            format!("{:<12}", conn.state),
+                            Style::default().fg(state_color),
+                        ),
                         Span::raw(format!(" {}", conn.process_name)),
-                    ])).style(style)
+                    ]))
+                    .style(style)
                 })
                 .collect();
-            
+
             if net_items.is_empty() {
                 vec![ListItem::new("No connections found. Press 'r' to refresh")]
             } else {
@@ -782,22 +942,33 @@ fn draw_network(f: &mut Frame, app: &App, area: Rect) {
                 .enumerate()
                 .map(|(i, iface)| {
                     let style = if i == app.selected_index {
-                        Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)
+                        Style::default()
+                            .fg(Color::Yellow)
+                            .add_modifier(Modifier::BOLD)
                     } else {
                         Style::default()
                     };
-                    
-                    let status_icon = if iface.status == "up" || iface.status.to_uppercase() == "UP" { "🟢" } else { "🔴" };
+
+                    let status_icon = if iface.status == "up" || iface.status.to_uppercase() == "UP"
+                    {
+                        "🟢"
+                    } else {
+                        "🔴"
+                    };
                     let ips = if iface.ip_addresses.is_empty() {
                         String::from("no IP")
                     } else {
                         iface.ip_addresses.join(", ")
                     };
-                    
-                    ListItem::new(format!("{} {:<15} {} ({})", status_icon, iface.name, ips, iface.mac_address)).style(style)
+
+                    ListItem::new(format!(
+                        "{} {:<15} {} ({})",
+                        status_icon, iface.name, ips, iface.mac_address
+                    ))
+                    .style(style)
                 })
                 .collect();
-            
+
             if net_items.is_empty() {
                 vec![ListItem::new("No interfaces found. Press 'r' to refresh")]
             } else {
@@ -812,19 +983,25 @@ fn draw_network(f: &mut Frame, app: &App, area: Rect) {
                 .enumerate()
                 .map(|(i, port)| {
                     let style = if i == app.selected_index {
-                        Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)
+                        Style::default()
+                            .fg(Color::Yellow)
+                            .add_modifier(Modifier::BOLD)
                     } else {
                         Style::default()
                     };
-                    
-                    ListItem::new(format!("Port {:<6} ({:<4}) - {} (PID: {})", 
+
+                    ListItem::new(format!(
+                        "Port {:<6} ({:<4}) - {} (PID: {})",
                         port.port, port.protocol, port.process_name, port.pid
-                    )).style(style)
+                    ))
+                    .style(style)
                 })
                 .collect();
-            
+
             if net_items.is_empty() {
-                vec![ListItem::new("No listening ports found. Press 'r' to refresh")]
+                vec![ListItem::new(
+                    "No listening ports found. Press 'r' to refresh",
+                )]
             } else {
                 net_items
             }
@@ -834,17 +1011,23 @@ fn draw_network(f: &mut Frame, app: &App, area: Rect) {
     let title = match app.network_module.current_view {
         crate::modules::network::NetworkView::Connections => {
             if let Some(ref filter) = app.network_module.filter_state {
-                format!("Network Connections [Filter: {}] (v: switch view, r: refresh, f: filter)", filter)
+                format!(
+                    "Network Connections [Filter: {}] (v: switch view, r: refresh, f: filter)",
+                    filter
+                )
             } else {
                 "Network Connections (v: switch view, r: refresh, f: filter)".to_string()
             }
         }
-        crate::modules::network::NetworkView::Interfaces => "Network Interfaces (v: switch view, r: refresh)".to_string(),
-        crate::modules::network::NetworkView::Ports => "Listening Ports (v: switch view, r: refresh)".to_string(),
+        crate::modules::network::NetworkView::Interfaces => {
+            "Network Interfaces (v: switch view, r: refresh)".to_string()
+        }
+        crate::modules::network::NetworkView::Ports => {
+            "Listening Ports (v: switch view, r: refresh)".to_string()
+        }
     };
 
-    let list = List::new(items)
-        .block(Block::default().title(title).borders(Borders::ALL));
+    let list = List::new(items).block(Block::default().title(title).borders(Borders::ALL));
     f.render_widget(list, chunks[0]);
 
     // Status bar showing current view
@@ -853,10 +1036,9 @@ fn draw_network(f: &mut Frame, app: &App, area: Rect) {
         crate::modules::network::NetworkView::Interfaces => "Interfaces",
         crate::modules::network::NetworkView::Ports => "Listening Ports",
     };
-    
+
     let status_text = format!("View: {} | Press 'v' to switch view", view_name);
-    let status = Paragraph::new(status_text)
-        .block(Block::default().borders(Borders::ALL));
+    let status = Paragraph::new(status_text).block(Block::default().borders(Borders::ALL));
     f.render_widget(status, chunks[1]);
 }
 
@@ -877,7 +1059,9 @@ fn draw_status(f: &mut Frame, app: &App, area: Rect) {
         }
         AppState::Input => "Enter: Submit | Esc: Cancel | Type your input",
         AppState::Confirm => "y: Yes | n: No | Esc: Cancel",
-        AppState::Search => "/: Search | Enter: Jump | Esc: Close | ↑↓/PgUp/PgDn/Home/End: Navigate",
+        AppState::Search => {
+            "/: Search | Enter: Jump | Esc: Close | ↑↓/PgUp/PgDn/Home/End: Navigate"
+        }
         AppState::ShellInput => "Enter: Execute | Esc: Cancel | Type shell command",
     };
 
@@ -976,14 +1160,14 @@ fn draw_search_popup(f: &mut Frame, app: &App) {
     let inner = Layout::default()
         .direction(Direction::Vertical)
         .constraints([
-            Constraint::Length(1),  // header line
-            Constraint::Length(3),  // input box height (taller so it's obvious)
-            Constraint::Min(0),     // results list
+            Constraint::Length(1), // header line
+            Constraint::Length(3), // input box height (taller so it's obvious)
+            Constraint::Min(0),    // results list
         ])
         .split(inner_area);
 
-    let header = Paragraph::new("Type to filter, Enter to jump, Esc to close")
-        .block(Block::default());
+    let header =
+        Paragraph::new("Type to filter, Enter to jump, Esc to close").block(Block::default());
     f.render_widget(header, inner[0]);
 
     // Input box: show "/ " prefix and the full query; no wrapping truncation problems
@@ -997,19 +1181,23 @@ fn draw_search_popup(f: &mut Frame, app: &App) {
     let start = app.search_selected.saturating_sub(window_height / 2);
     let end = usize::min(start + window_height, app.search_results.len());
 
-    let items: Vec<ListItem> = app
-        .search_results[start..end]
+    let items: Vec<ListItem> = app.search_results[start..end]
         .iter()
         .enumerate()
         .map(|(offset, r)| {
             let i = start + offset;
-            let style = if i == app.search_selected { Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD) } else { Style::default() };
+            let style = if i == app.search_selected {
+                Style::default()
+                    .fg(Color::Yellow)
+                    .add_modifier(Modifier::BOLD)
+            } else {
+                Style::default()
+            };
             ListItem::new(r.label.clone()).style(style)
         })
         .collect();
 
-    let list = List::new(items)
-        .block(Block::default().title("Results").borders(Borders::ALL));
+    let list = List::new(items).block(Block::default().title("Results").borders(Borders::ALL));
     f.render_widget(list, list_area);
 }
 
@@ -1031,20 +1219,22 @@ fn draw_scratchpad(f: &mut Frame, app: &App, area: Rect) {
         .map(|&idx| {
             let note = &app.scratchpad_module.notes[idx];
             let style = if idx == app.selected_index {
-                Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)
+                Style::default()
+                    .fg(Color::Yellow)
+                    .add_modifier(Modifier::BOLD)
             } else {
                 Style::default()
             };
-            
+
             let size_kb = note.size_bytes as f64 / 1024.0;
             let size_str = if size_kb < 1.0 {
                 format!("{}B", note.size_bytes)
             } else {
                 format!("{:.1}KB", size_kb)
             };
-            
+
             let created = note.created_at.format("%Y-%m-%d").to_string();
-            
+
             ListItem::new(format!(
                 "📝 {} - {} ({}) [created: {}]",
                 note.name,
@@ -1068,27 +1258,33 @@ fn draw_scratchpad(f: &mut Frame, app: &App, area: Rect) {
 
     if items.is_empty() {
         let empty_msg = if !app.scratchpad_search_query.is_empty() {
-            format!("No notes match \"{}\"\nPress 'f' to search again", app.scratchpad_search_query)
+            format!(
+                "No notes match \"{}\"\nPress 'f' to search again",
+                app.scratchpad_search_query
+            )
         } else {
             "No notes yet. Press 'n' to create a new note".to_string()
         };
-        let empty = Paragraph::new(empty_msg)
-            .block(Block::default().title(title).borders(Borders::ALL));
+        let empty =
+            Paragraph::new(empty_msg).block(Block::default().title(title).borders(Borders::ALL));
         f.render_widget(empty, chunks[0]);
     } else {
-        let list = List::new(items).block(
-            Block::default()
-                .title(title)
-                .borders(Borders::ALL),
-        );
+        let list = List::new(items).block(Block::default().title(title).borders(Borders::ALL));
         f.render_widget(list, chunks[0]);
     }
 
     // Preview pane
     if app.show_detail && app.selected_index < app.scratchpad_module.notes.len() {
-        if let Ok(preview) = app.scratchpad_module.get_content_preview(app.selected_index, 500) {
+        if let Ok(preview) = app
+            .scratchpad_module
+            .get_content_preview(app.selected_index, 500)
+        {
             let detail = Paragraph::new(preview)
-                .block(Block::default().title("Preview (t to toggle)").borders(Borders::ALL))
+                .block(
+                    Block::default()
+                        .title("Preview (t to toggle)")
+                        .borders(Borders::ALL),
+                )
                 .wrap(Wrap { trim: false });
             f.render_widget(detail, chunks[1]);
         } else {
@@ -1121,19 +1317,30 @@ fn draw_shell(f: &mut Frame, app: &App, area: Rect) {
             } else {
                 cmd.output.clone()
             };
-            
+
             let exit_status = match cmd.exit_code {
                 Some(0) => "✓",
                 Some(_) => "✗",
                 None => "?",
             };
-            
+
             ListItem::new(vec![
                 Line::from(vec![
-                    Span::styled(exit_status, Style::default().fg(if cmd.exit_code == Some(0) { Color::Green } else { Color::Red })),
+                    Span::styled(
+                        exit_status,
+                        Style::default().fg(if cmd.exit_code == Some(0) {
+                            Color::Green
+                        } else {
+                            Color::Red
+                        }),
+                    ),
                     Span::raw(" "),
                     Span::styled(&cmd.command, Style::default().fg(Color::Cyan)),
-                    Span::raw(format!(" @ {} ({})", cmd.working_dir.display(), cmd.timestamp.format("%H:%M:%S"))),
+                    Span::raw(format!(
+                        " @ {} ({})",
+                        cmd.working_dir.display(),
+                        cmd.timestamp.format("%H:%M:%S")
+                    )),
                 ]),
                 Line::from(format!("  {}", output_preview)),
             ])
@@ -1158,7 +1365,7 @@ fn draw_shell(f: &mut Frame, app: &App, area: Rect) {
     let prompt = app.shell_terminal_module.get_prompt();
     let history_count = app.shell_terminal_module.history.len();
     let max_history = app.shell_terminal_module.max_history;
-    
+
     let info_text = format!(
         "Working Directory: {}\nPrompt: {}\nHistory: {}/{}\n\nKeys: i=input  h=search history  C=clear history  r=refresh",
         cwd.display(),
@@ -1166,7 +1373,7 @@ fn draw_shell(f: &mut Frame, app: &App, area: Rect) {
         history_count,
         max_history
     );
-    
+
     let info = Paragraph::new(info_text)
         .block(Block::default().title("Shell Info").borders(Borders::ALL))
         .wrap(Wrap { trim: false });
@@ -1210,7 +1417,9 @@ fn draw_services(f: &mut Frame, app: &App, area: Rect) {
         .take(end.saturating_sub(start))
         .map(|(i, svc)| {
             let style = if i == app.selected_index {
-                Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)
+                Style::default()
+                    .fg(Color::Yellow)
+                    .add_modifier(Modifier::BOLD)
             } else {
                 Style::default()
             };
@@ -1238,7 +1447,10 @@ fn draw_services(f: &mut Frame, app: &App, area: Rect) {
                 Span::raw(" "),
                 Span::styled(format!("{:<30}", svc.display_name), style),
                 Span::raw(" "),
-                Span::styled(format!("[{}]", svc.state.as_str()), Style::default().fg(state_color)),
+                Span::styled(
+                    format!("[{}]", svc.state.as_str()),
+                    Style::default().fg(state_color),
+                ),
                 Span::raw(format!(" {} ", enabled_icon)),
             ];
 
@@ -1260,17 +1472,25 @@ fn draw_services(f: &mut Frame, app: &App, area: Rect) {
             filter.as_str()
         )
     } else {
-        let scope = if app.services_module.show_user_services { "user" } else { "system" };
-        format!("Services [{}] (s: start, S: stop, R: restart, E: enable, D: disable, l: logs, u: user/sys, f: search, r: refresh)", scope)
+        let scope = if app.services_module.show_user_services {
+            "user"
+        } else {
+            "system"
+        };
+        format!(
+            "Services [{}] (s: start, S: stop, R: restart, E: enable, D: disable, l: logs, u: user/sys, f: search, r: refresh)",
+            scope
+        )
     };
 
     if items.is_empty() {
-        let empty = Paragraph::new("No services found. Press 'r' to refresh or 'u' to toggle user/system services")
-            .block(Block::default().title(title).borders(Borders::ALL));
+        let empty = Paragraph::new(
+            "No services found. Press 'r' to refresh or 'u' to toggle user/system services",
+        )
+        .block(Block::default().title(title).borders(Borders::ALL));
         f.render_widget(empty, chunks[0]);
     } else {
-        let list = List::new(items)
-            .block(Block::default().title(title).borders(Borders::ALL));
+        let list = List::new(items).block(Block::default().title(title).borders(Borders::ALL));
         f.render_widget(list, chunks[0]);
     }
 
@@ -1302,7 +1522,11 @@ fn draw_services(f: &mut Frame, app: &App, area: Rect) {
         }
 
         let detail = Paragraph::new(detail_text)
-            .block(Block::default().title("Details (t to toggle)").borders(Borders::ALL))
+            .block(
+                Block::default()
+                    .title("Details (t to toggle)")
+                    .borders(Borders::ALL),
+            )
             .wrap(Wrap { trim: false });
         f.render_widget(detail, chunks[1]);
     } else {
@@ -1325,11 +1549,13 @@ fn draw_configs(f: &mut Frame, app: &App, area: Rect) {
         .enumerate()
         .map(|(i, config)| {
             let style = if i == app.selected_index {
-                Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)
+                Style::default()
+                    .fg(Color::Yellow)
+                    .add_modifier(Modifier::BOLD)
             } else {
                 Style::default()
             };
-            
+
             let exists_icon = if config.exists { "✓" } else { "✗" };
             let category_color = match config.category.as_str() {
                 "Shell" => Color::Green,
@@ -1338,30 +1564,40 @@ fn draw_configs(f: &mut Frame, app: &App, area: Rect) {
                 "Editor" => Color::Blue,
                 _ => Color::White,
             };
-            
+
             let truncated_path = if config.path.to_string_lossy().len() > 40 {
                 format!("{}...", &config.path.to_string_lossy()[..37])
             } else {
                 config.path.to_string_lossy().to_string()
             };
-            
+
             let size_info = if let Some(size) = config.file_size {
                 format!(" ({})", ConfigsModule::format_file_size(size))
             } else {
                 String::new()
             };
-            
+
             let modified_info = if let Some(ref modified) = config.last_modified {
                 format!(" [{}]", modified)
             } else {
                 String::new()
             };
-            
+
             ListItem::new(Line::from(vec![
-                Span::styled(exists_icon, Style::default().fg(if config.exists { Color::Green } else { Color::Red })),
+                Span::styled(
+                    exists_icon,
+                    Style::default().fg(if config.exists {
+                        Color::Green
+                    } else {
+                        Color::Red
+                    }),
+                ),
                 Span::raw(" "),
                 Span::styled(format!("{:<20}", config.name), style),
-                Span::styled(format!("[{}] ", config.category), Style::default().fg(category_color)),
+                Span::styled(
+                    format!("[{}] ", config.category),
+                    Style::default().fg(category_color),
+                ),
                 Span::raw(format!("{}", truncated_path)),
                 Span::styled(size_info, Style::default().fg(Color::Gray)),
                 Span::styled(modified_info, Style::default().fg(Color::Gray)),
@@ -1396,7 +1632,10 @@ fn draw_configs(f: &mut Frame, app: &App, area: Rect) {
         }
 
         if let Some(size) = config.file_size {
-            detail_text.push_str(&format!("\nSize: {}", ConfigsModule::format_file_size(size)));
+            detail_text.push_str(&format!(
+                "\nSize: {}",
+                ConfigsModule::format_file_size(size)
+            ));
         }
 
         if let Some(ref modified) = config.last_modified {
@@ -1404,13 +1643,18 @@ fn draw_configs(f: &mut Frame, app: &App, area: Rect) {
         }
 
         let detail = Paragraph::new(detail_text)
-            .block(Block::default().title("Details (t to toggle)").borders(Borders::ALL))
+            .block(
+                Block::default()
+                    .title("Details (t to toggle)")
+                    .borders(Borders::ALL),
+            )
             .wrap(Wrap { trim: false });
         f.render_widget(detail, chunks[1]);
     } else {
-        let help = Paragraph::new("Press 't' to toggle config details\nPress 'v' to preview config content")
-            .block(Block::default().title("Info").borders(Borders::ALL));
+        let help = Paragraph::new(
+            "Press 't' to toggle config details\nPress 'v' to preview config content",
+        )
+        .block(Block::default().title("Info").borders(Borders::ALL));
         f.render_widget(help, chunks[1]);
     }
 }
-

@@ -1,10 +1,13 @@
 use anyhow::Result;
 use crossterm::{
-    event::{self, DisableMouseCapture, EnableMouseCapture, Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers},
+    event::{
+        self, DisableMouseCapture, EnableMouseCapture, Event, KeyCode, KeyEvent, KeyEventKind,
+        KeyModifiers,
+    },
     execute,
-    terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
+    terminal::{EnterAlternateScreen, LeaveAlternateScreen, disable_raw_mode, enable_raw_mode},
 };
-use ratatui::{backend::CrosstermBackend, Terminal};
+use ratatui::{Terminal, backend::CrosstermBackend};
 use std::io;
 use std::time::Duration;
 
@@ -49,15 +52,25 @@ async fn run_app<B: ratatui::backend::Backend>(
         terminal.draw(|f| ui::draw(f, app))?;
 
         if event::poll(Duration::from_millis(100))? {
-            if let Event::Key(KeyEvent { code, modifiers, kind, .. }) = event::read()? {
-                if kind != KeyEventKind::Press { continue; }
+            if let Event::Key(KeyEvent {
+                code,
+                modifiers,
+                kind,
+                ..
+            }) = event::read()?
+            {
+                if kind != KeyEventKind::Press {
+                    continue;
+                }
                 match app.state {
                     AppState::Normal => match code {
                         KeyCode::Char('q') => return Ok(()),
                         KeyCode::Char('c') if modifiers.contains(KeyModifiers::CONTROL) => {
-                            return Ok(())
+                            return Ok(());
                         }
-                        KeyCode::Char('?') => { app.show_help = !app.show_help; }
+                        KeyCode::Char('?') => {
+                            app.show_help = !app.show_help;
+                        }
                         KeyCode::Char('1') => app.current_section = MenuSection::Dashboard,
                         KeyCode::Char('2') => app.current_section = MenuSection::Apps,
                         KeyCode::Char('3') => app.current_section = MenuSection::Bookmarks,
@@ -81,19 +94,25 @@ async fn run_app<B: ratatui::backend::Backend>(
                         KeyCode::End => app.go_end(),
                         KeyCode::Char('/') => app.open_search(),
                         KeyCode::Enter => {
-                            if let Err(e) = app.activate_item().await { app.report_error("Action failed", e); }
+                            if let Err(e) = app.activate_item().await {
+                                app.report_error("Action failed", e);
+                            }
                         }
                         KeyCode::Char('n') => app.new_item(),
                         KeyCode::Char('d') => app.delete_item(),
                         KeyCode::Char('r') => {
-                            if let Err(e) = app.refresh().await { app.report_error("Refresh failed", e); }
+                            if let Err(e) = app.refresh().await {
+                                app.report_error("Refresh failed", e);
+                            }
                         }
                         KeyCode::Char('R') => {
                             if app.current_section == MenuSection::Scratchpad {
                                 app.scratchpad_rename();
                             } else if app.current_section == MenuSection::Services {
                                 app.restart_service();
-                                if let Err(e) = app.refresh().await { app.report_error("Refresh failed", e); }
+                                if let Err(e) = app.refresh().await {
+                                    app.report_error("Refresh failed", e);
+                                }
                             }
                         }
                         KeyCode::Char('s') => {
@@ -110,18 +129,25 @@ async fn run_app<B: ratatui::backend::Backend>(
                                 if let Err(e) = app.git_module.scan_repositories() {
                                     app.report_error("Scan failed", e);
                                 } else {
-                                    app.status_message = format!("Found {} repositories", app.git_module.repos.len());
+                                    app.status_message = format!(
+                                        "Found {} repositories",
+                                        app.git_module.repos.len()
+                                    );
                                 }
                             } else if app.current_section == MenuSection::Services {
                                 app.stop_service();
                             } else {
-                                if let Err(e) = app.schedule_selected_script().await { app.report_error("Schedule failed", e); }
+                                if let Err(e) = app.schedule_selected_script().await {
+                                    app.report_error("Schedule failed", e);
+                                }
                             }
                         }
                         KeyCode::Char('u') => {
                             if app.current_section == MenuSection::Services {
                                 app.services_module.toggle_user_services();
-                                if let Err(e) = app.refresh().await { app.report_error("Refresh failed", e); }
+                                if let Err(e) = app.refresh().await {
+                                    app.report_error("Refresh failed", e);
+                                }
                             }
                         }
                         KeyCode::Char('E') => {
@@ -148,30 +174,38 @@ async fn run_app<B: ratatui::backend::Backend>(
                             } else if app.current_section == MenuSection::Docker {
                                 // Cycle through Docker views
                                 use crate::modules::docker::DockerView;
-                                app.docker_module.current_view = match app.docker_module.current_view {
-                                    DockerView::Containers => DockerView::Images,
-                                    DockerView::Images => DockerView::Containers,
-                                    _ => DockerView::Containers,
-                                };
+                                app.docker_module.current_view =
+                                    match app.docker_module.current_view {
+                                        DockerView::Containers => DockerView::Images,
+                                        DockerView::Images => DockerView::Containers,
+                                        _ => DockerView::Containers,
+                                    };
                                 app.selected_index = 0;
-                                if let Err(e) = app.refresh().await { app.report_error("Refresh failed", e); }
+                                if let Err(e) = app.refresh().await {
+                                    app.report_error("Refresh failed", e);
+                                }
                             } else if app.current_section == MenuSection::Network {
                                 // Cycle through Network views
                                 use crate::modules::network::NetworkView;
-                                app.network_module.current_view = match app.network_module.current_view {
-                                    NetworkView::Connections => NetworkView::Interfaces,
-                                    NetworkView::Interfaces => NetworkView::Ports,
-                                    NetworkView::Ports => NetworkView::Connections,
-                                };
+                                app.network_module.current_view =
+                                    match app.network_module.current_view {
+                                        NetworkView::Connections => NetworkView::Interfaces,
+                                        NetworkView::Interfaces => NetworkView::Ports,
+                                        NetworkView::Ports => NetworkView::Connections,
+                                    };
                                 app.selected_index = 0;
-                                if let Err(e) = app.refresh().await { app.report_error("Refresh failed", e); }
+                                if let Err(e) = app.refresh().await {
+                                    app.report_error("Refresh failed", e);
+                                }
                             }
                         }
                         KeyCode::Char('f') => {
                             if app.current_section == MenuSection::Network {
                                 // Toggle ESTABLISHED filter for network connections
                                 app.network_module.toggle_filter("ESTABLISHED");
-                                if let Err(e) = app.refresh().await { app.report_error("Refresh failed", e); }
+                                if let Err(e) = app.refresh().await {
+                                    app.report_error("Refresh failed", e);
+                                }
                             } else if app.current_section == MenuSection::Scratchpad {
                                 // Search in scratchpad
                                 app.scratchpad_search();
@@ -233,7 +267,9 @@ async fn run_app<B: ratatui::backend::Backend>(
                     },
                     AppState::Input => match code {
                         KeyCode::Enter => {
-                            if let Err(e) = app.submit_input().await { app.report_error("Submit failed", e); }
+                            if let Err(e) = app.submit_input().await {
+                                app.report_error("Submit failed", e);
+                            }
                         }
                         KeyCode::Esc => app.cancel_input(),
                         KeyCode::Backspace => app.input_backspace(),
@@ -243,23 +279,49 @@ async fn run_app<B: ratatui::backend::Backend>(
                         _ => {}
                     },
                     AppState::Search => match code {
-                        KeyCode::Enter => { app.submit_search(); }
-                        KeyCode::Esc => { app.close_search(); }
-                        KeyCode::Backspace => { app.search_backspace(); }
-                        KeyCode::Up | KeyCode::Char('k') => { app.search_prev(); }
-                        KeyCode::Down | KeyCode::Char('j') => { app.search_next(); }
-                        KeyCode::Left => { app.search_move_left(); }
-                        KeyCode::Right => { app.search_move_right(); }
-                        KeyCode::PageUp => { app.search_page_up(); }
-                        KeyCode::PageDown => { app.search_page_down(); }
-                        KeyCode::Home => { app.search_go_home(); }
-                        KeyCode::End => { app.search_go_end(); }
-                        KeyCode::Char(c) => { app.search_input_char(c); }
+                        KeyCode::Enter => {
+                            app.submit_search();
+                        }
+                        KeyCode::Esc => {
+                            app.close_search();
+                        }
+                        KeyCode::Backspace => {
+                            app.search_backspace();
+                        }
+                        KeyCode::Up | KeyCode::Char('k') => {
+                            app.search_prev();
+                        }
+                        KeyCode::Down | KeyCode::Char('j') => {
+                            app.search_next();
+                        }
+                        KeyCode::Left => {
+                            app.search_move_left();
+                        }
+                        KeyCode::Right => {
+                            app.search_move_right();
+                        }
+                        KeyCode::PageUp => {
+                            app.search_page_up();
+                        }
+                        KeyCode::PageDown => {
+                            app.search_page_down();
+                        }
+                        KeyCode::Home => {
+                            app.search_go_home();
+                        }
+                        KeyCode::End => {
+                            app.search_go_end();
+                        }
+                        KeyCode::Char(c) => {
+                            app.search_input_char(c);
+                        }
                         _ => {}
                     },
                     AppState::Confirm => match code {
                         KeyCode::Char('y') | KeyCode::Char('Y') => {
-                            if let Err(e) = app.confirm_action().await { app.report_error("Confirm failed", e); }
+                            if let Err(e) = app.confirm_action().await {
+                                app.report_error("Confirm failed", e);
+                            }
                         }
                         KeyCode::Char('n') | KeyCode::Char('N') | KeyCode::Esc => {
                             app.cancel_confirm()
@@ -283,6 +345,8 @@ async fn run_app<B: ratatui::backend::Backend>(
             }
         }
 
-        if let Err(e) = app.auto_refresh().await { app.report_error("Auto refresh failed", e); }
+        if let Err(e) = app.auto_refresh().await {
+            app.report_error("Auto refresh failed", e);
+        }
     }
 }

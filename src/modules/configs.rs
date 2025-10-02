@@ -53,11 +53,10 @@ impl ConfigsModule {
             return Ok(());
         }
 
-        let content = fs::read_to_string(&self.config_file)
-            .context("Failed to read configs file")?;
-        
-        self.configs = serde_json::from_str(&content)
-            .context("Failed to parse configs file")?;
+        let content =
+            fs::read_to_string(&self.config_file).context("Failed to read configs file")?;
+
+        self.configs = serde_json::from_str(&content).context("Failed to parse configs file")?;
 
         Ok(())
     }
@@ -76,11 +75,11 @@ impl ConfigsModule {
     pub fn refresh(&mut self) -> Result<()> {
         for config in &mut self.configs {
             config.exists = config.path.exists();
-            
+
             if config.exists {
                 if let Ok(metadata) = fs::metadata(&config.path) {
                     config.file_size = Some(metadata.len());
-                    
+
                     if let Ok(modified) = metadata.modified() {
                         if let Ok(duration) = modified.elapsed() {
                             config.last_modified = Some(Self::format_time_ago(duration));
@@ -95,14 +94,22 @@ impl ConfigsModule {
 
         // Sort by category, then name
         self.configs.sort_by(|a, b| {
-            a.category.cmp(&b.category)
+            a.category
+                .cmp(&b.category)
                 .then_with(|| a.name.cmp(&b.name))
         });
 
         Ok(())
     }
 
-    pub fn add(&mut self, name: String, path: PathBuf, category: String, description: String, editor: Option<String>) -> Result<()> {
+    pub fn add(
+        &mut self,
+        name: String,
+        path: PathBuf,
+        category: String,
+        description: String,
+        editor: Option<String>,
+    ) -> Result<()> {
         let config = ConfigEntry {
             name,
             path,
@@ -124,7 +131,7 @@ impl ConfigsModule {
     pub fn add_from_string(&mut self, input: &str) -> Result<()> {
         // Format: name|path|category|description|editor (editor is optional)
         let parts: Vec<&str> = input.split('|').map(|s| s.trim()).collect();
-        
+
         if parts.len() < 3 {
             anyhow::bail!("Invalid format. Use: name|path|category|description|editor");
         }
@@ -133,7 +140,10 @@ impl ConfigsModule {
         let path = PathBuf::from(parts[1]);
         let category = parts[2].to_string();
         let description = parts.get(3).unwrap_or(&"").to_string();
-        let editor = parts.get(4).filter(|s| !s.is_empty()).map(|s| s.to_string());
+        let editor = parts
+            .get(4)
+            .filter(|s| !s.is_empty())
+            .map(|s| s.to_string());
 
         self.add(name, path, category, description, editor)
     }
@@ -157,15 +167,15 @@ impl ConfigsModule {
             anyhow::bail!("Config file does not exist: {:?}", config.path);
         }
 
-        let editor = config.editor.clone()
+        let editor = config
+            .editor
+            .clone()
             .or_else(|| std::env::var("EDITOR").ok())
             .unwrap_or_else(|| "nano".to_string());
 
         #[cfg(unix)]
         {
-            Command::new(&editor)
-                .arg(&config.path)
-                .spawn()?;
+            Command::new(&editor).arg(&config.path).spawn()?;
         }
 
         #[cfg(windows)]
@@ -189,10 +199,14 @@ impl ConfigsModule {
             anyhow::bail!("Config file does not exist: {:?}", config.path);
         }
 
-        let extension = config.path.extension().and_then(|s| s.to_str()).unwrap_or("");
+        let extension = config
+            .path
+            .extension()
+            .and_then(|s| s.to_str())
+            .unwrap_or("");
         let timestamp = chrono::Local::now().format("%Y%m%d_%H%M%S");
         let backup_extension = format!("{}.backup.{}", extension, timestamp);
-        
+
         let backup_path = config.path.with_extension(backup_extension);
 
         fs::copy(&config.path, &backup_path)?;
@@ -212,13 +226,17 @@ impl ConfigsModule {
         }
 
         let content = fs::read_to_string(&config.path)?;
-        
+
         // Limit to first 50 lines for preview
         let lines: Vec<&str> = content.lines().take(50).collect();
         let preview = lines.join("\n");
-        
+
         if content.lines().count() > 50 {
-            Ok(format!("{}\n\n... ({} more lines)", preview, content.lines().count() - 50))
+            Ok(format!(
+                "{}\n\n... ({} more lines)",
+                preview,
+                content.lines().count() - 50
+            ))
         } else {
             Ok(preview)
         }
@@ -231,14 +249,16 @@ impl ConfigsModule {
             .enumerate()
             .filter(|(_, c)| {
                 c.name.to_lowercase().contains(&query_lower)
-                    || c.path.to_string_lossy().to_lowercase().contains(&query_lower)
+                    || c.path
+                        .to_string_lossy()
+                        .to_lowercase()
+                        .contains(&query_lower)
                     || c.category.to_lowercase().contains(&query_lower)
                     || c.description.to_lowercase().contains(&query_lower)
             })
             .map(|(i, _)| i)
             .collect()
     }
-
 
     pub fn copy_to_clipboard(&self, index: usize) -> Result<String> {
         if index >= self.configs.len() {
@@ -256,10 +276,8 @@ impl ConfigsModule {
         #[cfg(target_os = "macos")]
         {
             use std::process::Stdio;
-            let mut child = Command::new("pbcopy")
-                .stdin(Stdio::piped())
-                .spawn()?;
-            
+            let mut child = Command::new("pbcopy").stdin(Stdio::piped()).spawn()?;
+
             if let Some(mut stdin) = child.stdin.take() {
                 use std::io::Write;
                 stdin.write_all(content.as_bytes())?;
@@ -274,7 +292,7 @@ impl ConfigsModule {
                 .args(&["-selection", "clipboard"])
                 .stdin(Stdio::piped())
                 .spawn()?;
-            
+
             if let Some(mut stdin) = child.stdin.take() {
                 use std::io::Write;
                 stdin.write_all(content.as_bytes())?;
@@ -285,10 +303,8 @@ impl ConfigsModule {
         #[cfg(target_os = "windows")]
         {
             use std::process::Stdio;
-            let mut child = Command::new("clip")
-                .stdin(Stdio::piped())
-                .spawn()?;
-            
+            let mut child = Command::new("clip").stdin(Stdio::piped()).spawn()?;
+
             if let Some(mut stdin) = child.stdin.take() {
                 use std::io::Write;
                 stdin.write_all(content.as_bytes())?;
@@ -309,23 +325,17 @@ impl ConfigsModule {
 
         #[cfg(target_os = "macos")]
         {
-            Command::new("open")
-                .arg(_dir)
-                .spawn()?;
+            Command::new("open").arg(_dir).spawn()?;
         }
 
         #[cfg(target_os = "linux")]
         {
-            Command::new("xdg-open")
-                .arg(_dir)
-                .spawn()?;
+            Command::new("xdg-open").arg(_dir).spawn()?;
         }
 
         #[cfg(target_os = "windows")]
         {
-            Command::new("explorer")
-                .arg(_dir)
-                .spawn()?;
+            Command::new("explorer").arg(_dir).spawn()?;
         }
 
         Ok(())
@@ -333,7 +343,7 @@ impl ConfigsModule {
 
     fn get_default_configs() -> Vec<ConfigEntry> {
         let home = dirs::home_dir().unwrap_or_else(|| PathBuf::from("."));
-        
+
         vec![
             ConfigEntry {
                 name: "Bash Config".to_string(),
@@ -390,7 +400,7 @@ impl ConfigsModule {
 
     fn format_time_ago(duration: std::time::Duration) -> String {
         let secs = duration.as_secs();
-        
+
         if secs < 60 {
             format!("{}s ago", secs)
         } else if secs < 3600 {

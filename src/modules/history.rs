@@ -27,7 +27,10 @@ impl ShellHistoryModule {
     pub fn new() -> Self {
         let detected_shell = detect_shell();
         let entries = normalize_entries(load_history(detected_shell));
-        Self { detected_shell, entries }
+        Self {
+            detected_shell,
+            entries,
+        }
     }
 
     pub fn refresh(&mut self) {
@@ -35,7 +38,9 @@ impl ShellHistoryModule {
     }
 
     pub fn run_entry(&self, index: usize) {
-        if index >= self.entries.len() { return; }
+        if index >= self.entries.len() {
+            return;
+        }
         let cmd = self.entries[index].command.clone();
         #[cfg(windows)]
         {
@@ -78,13 +83,21 @@ pub fn detect_shell() -> ShellKind {
     if cfg!(target_os = "windows") {
         let parent = std::env::var("PSModulePath").ok();
         let appdata = std::env::var("APPDATA").ok();
-        if parent.is_some() || appdata.is_some() { return ShellKind::PowerShell; }
+        if parent.is_some() || appdata.is_some() {
+            return ShellKind::PowerShell;
+        }
     }
     // Unix: read $SHELL
     if let Ok(s) = std::env::var("SHELL") {
-        if s.contains("zsh") { return ShellKind::Zsh; }
-        if s.contains("fish") { return ShellKind::Fish; }
-        if s.contains("bash") { return ShellKind::Bash; }
+        if s.contains("zsh") {
+            return ShellKind::Zsh;
+        }
+        if s.contains("fish") {
+            return ShellKind::Fish;
+        }
+        if s.contains("bash") {
+            return ShellKind::Bash;
+        }
     }
     // Fallback
     ShellKind::Unknown
@@ -130,12 +143,21 @@ fn load_zsh_history() -> Vec<HistoryEntry> {
             if let Some(rest) = line.strip_prefix(": ") {
                 if let Some((ts_part, cmd)) = rest.split_once(";") {
                     let ts_str = ts_part.split(':').next().unwrap_or("");
-                    let ts = ts_str.parse::<i64>().ok().and_then(|t| Local.timestamp_opt(t, 0).single());
-                    out.push(HistoryEntry { timestamp: ts, command: cmd.to_string() });
+                    let ts = ts_str
+                        .parse::<i64>()
+                        .ok()
+                        .and_then(|t| Local.timestamp_opt(t, 0).single());
+                    out.push(HistoryEntry {
+                        timestamp: ts,
+                        command: cmd.to_string(),
+                    });
                     continue;
                 }
             }
-            out.push(HistoryEntry { timestamp: None, command: line.to_string() });
+            out.push(HistoryEntry {
+                timestamp: None,
+                command: line.to_string(),
+            });
         }
         return out;
     }
@@ -162,7 +184,10 @@ fn load_fish_history() -> Vec<HistoryEntry> {
             let line = line.trim_start();
             if let Some(rest) = line.strip_prefix("- cmd: ") {
                 if let Some(cmd) = cur_cmd.take() {
-                    out.push(HistoryEntry { timestamp: cur_when.take(), command: cmd });
+                    out.push(HistoryEntry {
+                        timestamp: cur_when.take(),
+                        command: cmd,
+                    });
                 }
                 cur_cmd = Some(rest.to_string());
             } else if let Some(rest) = line.strip_prefix("when: ") {
@@ -172,7 +197,10 @@ fn load_fish_history() -> Vec<HistoryEntry> {
             }
         }
         if let Some(cmd) = cur_cmd.take() {
-            out.push(HistoryEntry { timestamp: cur_when.take(), command: cmd });
+            out.push(HistoryEntry {
+                timestamp: cur_when.take(),
+                command: cmd,
+            });
         }
         return out;
     }
@@ -184,10 +212,11 @@ fn read_lines_plain(path: PathBuf) -> Vec<HistoryEntry> {
         return content
             .lines()
             .filter(|l| !l.trim().is_empty())
-            .map(|l| HistoryEntry { timestamp: None, command: l.to_string() })
+            .map(|l| HistoryEntry {
+                timestamp: None,
+                command: l.to_string(),
+            })
             .collect();
     }
     Vec::new()
 }
-
-

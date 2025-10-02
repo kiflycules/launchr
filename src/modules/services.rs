@@ -37,12 +37,15 @@ pub struct ServiceInfo {
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum ServiceManager {
     #[cfg(target_os = "linux")]
-    Systemd,      // Linux systemd
+    Systemd, // Linux systemd
     #[cfg(target_os = "macos")]
-    Launchd,      // macOS
+    Launchd, // macOS
     #[cfg(target_os = "windows")]
     WindowsService, // Windows Services
-    #[cfg(any(target_os = "linux", not(any(target_os = "linux", target_os = "macos", target_os = "windows"))))]
+    #[cfg(any(
+        target_os = "linux",
+        not(any(target_os = "linux", target_os = "macos", target_os = "windows"))
+    ))]
     Unknown,
 }
 
@@ -56,7 +59,7 @@ pub struct ServicesModule {
 impl ServicesModule {
     pub fn new() -> Self {
         let service_manager = Self::detect_service_manager();
-        
+
         Self {
             services: Vec::new(),
             service_manager,
@@ -115,10 +118,21 @@ impl ServicesModule {
 
     #[cfg(target_os = "linux")]
     fn refresh_systemd(&mut self) -> Result<()> {
-        let scope = if self.show_user_services { "--user" } else { "--system" };
-        
+        let scope = if self.show_user_services {
+            "--user"
+        } else {
+            "--system"
+        };
+
         let output = Command::new("systemctl")
-            .args(&[scope, "list-units", "--type=service", "--all", "--no-pager", "--no-legend"])
+            .args(&[
+                scope,
+                "list-units",
+                "--type=service",
+                "--all",
+                "--no-pager",
+                "--no-legend",
+            ])
             .output()?;
 
         if !output.status.success() {
@@ -126,7 +140,7 @@ impl ServicesModule {
         }
 
         let stdout = String::from_utf8_lossy(&output.stdout);
-        
+
         for line in stdout.lines() {
             if line.trim().is_empty() {
                 continue;
@@ -178,7 +192,11 @@ impl ServicesModule {
     }
 
     #[cfg(target_os = "linux")]
-    fn get_systemd_service_details(&self, service: &str, scope: &str) -> (bool, Option<u32>, Option<String>, Option<String>) {
+    fn get_systemd_service_details(
+        &self,
+        service: &str,
+        scope: &str,
+    ) -> (bool, Option<u32>, Option<String>, Option<String>) {
         let mut enabled = false;
         let mut pid = None;
         let mut memory = None;
@@ -194,11 +212,16 @@ impl ServicesModule {
 
         // Get status for more details
         if let Ok(output) = Command::new("systemctl")
-            .args(&[scope, "show", &format!("{}.service", service), "--property=MainPID,MemoryCurrent,ActiveEnterTimestamp"])
+            .args(&[
+                scope,
+                "show",
+                &format!("{}.service", service),
+                "--property=MainPID,MemoryCurrent,ActiveEnterTimestamp",
+            ])
             .output()
         {
             let status = String::from_utf8_lossy(&output.stdout);
-            
+
             for line in status.lines() {
                 if let Some(value) = line.strip_prefix("MainPID=") {
                     if let Ok(p) = value.parse::<u32>() {
@@ -225,17 +248,16 @@ impl ServicesModule {
 
     #[cfg(target_os = "macos")]
     fn refresh_launchd(&mut self) -> Result<()> {
-        let output = Command::new("launchctl")
-            .args(&["list"])
-            .output()?;
+        let output = Command::new("launchctl").args(&["list"]).output()?;
 
         if !output.status.success() {
             return Ok(());
         }
 
         let stdout = String::from_utf8_lossy(&output.stdout);
-        
-        for line in stdout.lines().skip(1) { // Skip header
+
+        for line in stdout.lines().skip(1) {
+            // Skip header
             if line.trim().is_empty() {
                 continue;
             }
@@ -284,9 +306,7 @@ impl ServicesModule {
 
     #[cfg(target_os = "windows")]
     fn refresh_windows(&mut self) -> Result<()> {
-        let output = Command::new("sc")
-            .args(&["query"])
-            .output()?;
+        let output = Command::new("sc").args(&["query"]).output()?;
 
         if !output.status.success() {
             return Ok(());
@@ -304,7 +324,8 @@ impl ServicesModule {
                     self.services.push(service);
                 }
 
-                let name = trimmed.strip_prefix("SERVICE_NAME:")
+                let name = trimmed
+                    .strip_prefix("SERVICE_NAME:")
                     .unwrap_or("")
                     .trim()
                     .to_string();
@@ -321,7 +342,8 @@ impl ServicesModule {
                 });
             } else if trimmed.starts_with("DISPLAY_NAME:") {
                 if let Some(ref mut service) = current_service {
-                    service.display_name = trimmed.strip_prefix("DISPLAY_NAME:")
+                    service.display_name = trimmed
+                        .strip_prefix("DISPLAY_NAME:")
                         .unwrap_or("")
                         .trim()
                         .to_string();
@@ -412,7 +434,9 @@ impl ServicesModule {
             #[cfg(target_os = "linux")]
             ServiceManager::Systemd => self.systemd_enable(&service.name),
             #[cfg(target_os = "macos")]
-            ServiceManager::Launchd => Ok("Launchd services are managed via plist files".to_string()),
+            ServiceManager::Launchd => {
+                Ok("Launchd services are managed via plist files".to_string())
+            }
             #[cfg(target_os = "windows")]
             ServiceManager::WindowsService => self.windows_enable(&service.name),
             ServiceManager::Unknown => Ok("Unknown service manager".to_string()),
@@ -430,7 +454,9 @@ impl ServicesModule {
             #[cfg(target_os = "linux")]
             ServiceManager::Systemd => self.systemd_disable(&service.name),
             #[cfg(target_os = "macos")]
-            ServiceManager::Launchd => Ok("Launchd services are managed via plist files".to_string()),
+            ServiceManager::Launchd => {
+                Ok("Launchd services are managed via plist files".to_string())
+            }
             #[cfg(target_os = "windows")]
             ServiceManager::WindowsService => self.windows_disable(&service.name),
             ServiceManager::Unknown => Ok("Unknown service manager".to_string()),
@@ -450,7 +476,9 @@ impl ServicesModule {
             #[cfg(target_os = "macos")]
             ServiceManager::Launchd => Ok("Log viewing not implemented for launchd".to_string()),
             #[cfg(target_os = "windows")]
-            ServiceManager::WindowsService => Ok("Log viewing not implemented for Windows services".to_string()),
+            ServiceManager::WindowsService => {
+                Ok("Log viewing not implemented for Windows services".to_string())
+            }
             ServiceManager::Unknown => Ok("Unknown service manager".to_string()),
         }
     }
@@ -458,7 +486,11 @@ impl ServicesModule {
     // Systemd operations
     #[cfg(target_os = "linux")]
     fn systemd_start(&self, service: &str) -> Result<String> {
-        let scope = if self.show_user_services { "--user" } else { "--system" };
+        let scope = if self.show_user_services {
+            "--user"
+        } else {
+            "--system"
+        };
         let output = Command::new("systemctl")
             .args(&[scope, "start", &format!("{}.service", service)])
             .output()?;
@@ -468,7 +500,11 @@ impl ServicesModule {
 
     #[cfg(target_os = "linux")]
     fn systemd_stop(&self, service: &str) -> Result<String> {
-        let scope = if self.show_user_services { "--user" } else { "--system" };
+        let scope = if self.show_user_services {
+            "--user"
+        } else {
+            "--system"
+        };
         let output = Command::new("systemctl")
             .args(&[scope, "stop", &format!("{}.service", service)])
             .output()?;
@@ -478,7 +514,11 @@ impl ServicesModule {
 
     #[cfg(target_os = "linux")]
     fn systemd_restart(&self, service: &str) -> Result<String> {
-        let scope = if self.show_user_services { "--user" } else { "--system" };
+        let scope = if self.show_user_services {
+            "--user"
+        } else {
+            "--system"
+        };
         let output = Command::new("systemctl")
             .args(&[scope, "restart", &format!("{}.service", service)])
             .output()?;
@@ -488,7 +528,11 @@ impl ServicesModule {
 
     #[cfg(target_os = "linux")]
     fn systemd_enable(&self, service: &str) -> Result<String> {
-        let scope = if self.show_user_services { "--user" } else { "--system" };
+        let scope = if self.show_user_services {
+            "--user"
+        } else {
+            "--system"
+        };
         let output = Command::new("systemctl")
             .args(&[scope, "enable", &format!("{}.service", service)])
             .output()?;
@@ -498,7 +542,11 @@ impl ServicesModule {
 
     #[cfg(target_os = "linux")]
     fn systemd_disable(&self, service: &str) -> Result<String> {
-        let scope = if self.show_user_services { "--user" } else { "--system" };
+        let scope = if self.show_user_services {
+            "--user"
+        } else {
+            "--system"
+        };
         let output = Command::new("systemctl")
             .args(&[scope, "disable", &format!("{}.service", service)])
             .output()?;
@@ -508,9 +556,20 @@ impl ServicesModule {
 
     #[cfg(target_os = "linux")]
     fn systemd_logs(&self, service: &str, lines: usize) -> Result<String> {
-        let scope = if self.show_user_services { "--user" } else { "--system" };
+        let scope = if self.show_user_services {
+            "--user"
+        } else {
+            "--system"
+        };
         let output = Command::new("journalctl")
-            .args(&[scope, "-u", &format!("{}.service", service), "-n", &lines.to_string(), "--no-pager"])
+            .args(&[
+                scope,
+                "-u",
+                &format!("{}.service", service),
+                "-n",
+                &lines.to_string(),
+                "--no-pager",
+            ])
             .output()?;
 
         Ok(String::from_utf8_lossy(&output.stdout).to_string())
@@ -545,18 +604,14 @@ impl ServicesModule {
     // Windows operations
     #[cfg(target_os = "windows")]
     fn windows_start(&self, service: &str) -> Result<String> {
-        let output = Command::new("sc")
-            .args(&["start", service])
-            .output()?;
+        let output = Command::new("sc").args(&["start", service]).output()?;
 
         Ok(String::from_utf8_lossy(&output.stdout).to_string())
     }
 
     #[cfg(target_os = "windows")]
     fn windows_stop(&self, service: &str) -> Result<String> {
-        let output = Command::new("sc")
-            .args(&["stop", service])
-            .output()?;
+        let output = Command::new("sc").args(&["stop", service]).output()?;
 
         Ok(String::from_utf8_lossy(&output.stdout).to_string())
     }
@@ -622,4 +677,3 @@ impl ServicesModule {
         }
     }
 }
-

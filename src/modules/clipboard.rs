@@ -39,14 +39,14 @@ impl ClipboardModule {
                 }
             }
         }
-        
+
         // Fallback for systems without clipboard support
         #[cfg(not(feature = "clipboard"))]
         {
             // Could integrate with external clipboard managers
             // or use platform-specific commands
         }
-        
+
         Ok(())
     }
 
@@ -66,7 +66,7 @@ impl ClipboardModule {
         };
 
         self.entries.push_front(entry);
-        
+
         // Remove old unpinned entries if over limit
         while self.entries.len() > self.max_entries {
             // Find last unpinned entry and remove it
@@ -82,14 +82,14 @@ impl ClipboardModule {
         if index >= self.entries.len() {
             return Ok(());
         }
-        
+
         let content = &self.entries[index].content;
-        
+
         #[cfg(target_os = "linux")]
         {
-            use std::process::Command;
             use std::io::Write;
-            
+            use std::process::Command;
+
             // Try xclip first
             if let Ok(mut child) = Command::new("xclip")
                 .arg("-selection")
@@ -103,7 +103,7 @@ impl ClipboardModule {
                 let _ = child.wait();
                 return Ok(());
             }
-            
+
             // Fallback to xsel
             if let Ok(mut child) = Command::new("xsel")
                 .arg("--clipboard")
@@ -117,12 +117,12 @@ impl ClipboardModule {
                 let _ = child.wait();
             }
         }
-        
+
         #[cfg(target_os = "macos")]
         {
-            use std::process::Command;
             use std::io::Write;
-            
+            use std::process::Command;
+
             if let Ok(mut child) = Command::new("pbcopy")
                 .stdin(std::process::Stdio::piped())
                 .spawn()
@@ -133,16 +133,19 @@ impl ClipboardModule {
                 let _ = child.wait();
             }
         }
-        
+
         #[cfg(target_os = "windows")]
         {
             use std::process::Command;
             // Use PowerShell to set clipboard
             let _ = Command::new("powershell")
-                .args(&["-command", &format!("Set-Clipboard -Value '{}'", content.replace('\'', "''"))])
+                .args(&[
+                    "-command",
+                    &format!("Set-Clipboard -Value '{}'", content.replace('\'', "''")),
+                ])
                 .output();
         }
-        
+
         Ok(())
     }
 
@@ -151,15 +154,13 @@ impl ClipboardModule {
         if let Some(entry) = self.entries.get_mut(index) {
             entry.pinned = !entry.pinned;
         }
-        
+
         // Sort to keep pinned items at top
         let mut pinned: Vec<_> = self.entries.drain(..).collect();
-        pinned.sort_by(|a, b| {
-            match (a.pinned, b.pinned) {
-                (true, false) => std::cmp::Ordering::Less,
-                (false, true) => std::cmp::Ordering::Greater,
-                _ => b.timestamp.cmp(&a.timestamp),
-            }
+        pinned.sort_by(|a, b| match (a.pinned, b.pinned) {
+            (true, false) => std::cmp::Ordering::Less,
+            (false, true) => std::cmp::Ordering::Greater,
+            _ => b.timestamp.cmp(&a.timestamp),
         });
         self.entries = pinned.into();
     }
