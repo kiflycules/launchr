@@ -454,8 +454,9 @@ impl ConfigsModule {
     pub fn scroll_preview_down(&mut self) {
         if let Some(ref content) = self.preview_content {
             let lines: Vec<&str> = content.lines().collect();
-            if self.preview_scroll < lines.len().saturating_sub(1) {
-                self.preview_scroll += 1;
+            let max_scroll = lines.len().saturating_sub(1);
+            if self.preview_scroll < max_scroll {
+                self.preview_scroll = (self.preview_scroll + 1).min(max_scroll);
             }
         }
     }

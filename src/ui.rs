@@ -1535,7 +1535,7 @@ fn draw_services(f: &mut Frame, app: &App, area: Rect) {
 fn draw_configs(f: &mut Frame, app: &App, area: Rect) {
     let chunks = Layout::default()
         .direction(Direction::Vertical)
-        .constraints([Constraint::Percentage(70), Constraint::Percentage(30)])
+        .constraints([Constraint::Percentage(40), Constraint::Percentage(60)])
         .split(area);
 
     let items: Vec<ListItem> = app
@@ -1606,8 +1606,26 @@ fn draw_configs(f: &mut Frame, app: &App, area: Rect) {
             .block(Block::default().title("Configs").borders(Borders::ALL));
         f.render_widget(empty, chunks[0]);
     } else {
-        let list = List::new(items)
-            .block(Block::default().title("Configs (n: new, d: delete, Enter: open, b: backup, v: view, c: copy, o: open folder, f: search)").borders(Borders::ALL));
+        let window_height = (chunks[0].height.saturating_sub(2)) as usize;
+        let configs_len = app.configs_module.configs.len();
+        let selected_index = app.selected_index.min(configs_len.saturating_sub(1));
+        
+        let start = if configs_len == 0 {
+            0
+        } else {
+            let half = window_height / 2;
+            let base = selected_index.saturating_sub(half);
+            let max_start = configs_len.saturating_sub(window_height);
+            base.min(max_start)
+        };
+        
+        let end = (start + window_height).min(configs_len);
+        let visible_items = items[start..end].to_vec();
+        
+        let list = List::new(visible_items)
+            .block(Block::default().title("Configs (n: new, d: delete, Enter: open, b: backup, v: view, c: copy, o: open folder, f: search)").borders(Borders::ALL))
+            .highlight_style(Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD))
+            .highlight_symbol("> ");
         f.render_widget(list, chunks[0]);
     }
 
@@ -1650,18 +1668,22 @@ fn draw_configs(f: &mut Frame, app: &App, area: Rect) {
         let lines: Vec<&str> = preview.lines().collect();
         let scroll_pos = app.configs_module.preview_scroll;
         
+        // Ensure scroll position is valid
+        let max_scroll = lines.len().saturating_sub(1);
+        let valid_scroll_pos = scroll_pos.min(max_scroll);
+        
         // Show lines starting from scroll position, limited by available height
         let available_height = chunks[1].height.saturating_sub(2); // Account for borders
-        let end_line = (scroll_pos + available_height as usize).min(lines.len());
-        let visible_lines = if scroll_pos < lines.len() {
-            lines[scroll_pos..end_line].join("\n")
+        let end_line = (valid_scroll_pos + available_height as usize).min(lines.len());
+        let visible_lines = if valid_scroll_pos < lines.len() && !lines.is_empty() {
+            lines[valid_scroll_pos..end_line].join("\n")
         } else {
             String::new()
         };
         
         let scroll_info = if lines.len() > available_height as usize {
             format!("Preview ({} of {} lines, ↑↓ to scroll, Esc to exit, v to refresh)", 
-                   scroll_pos + 1, lines.len())
+                   valid_scroll_pos + 1, lines.len())
         } else {
             "Preview (Esc to exit, v to refresh)".to_string()
         };

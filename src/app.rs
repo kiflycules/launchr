@@ -1399,13 +1399,20 @@ impl App {
     }
 
     pub fn view_selected_config(&mut self) -> Result<()> {
-        if self.current_section == MenuSection::Configs
-            && let Ok(content) = self.configs_module.view_config(self.selected_index) {
+        if self.current_section == MenuSection::Configs {
+            let config = &self.configs_module.configs[self.selected_index];
+            if !config.exists {
+                self.status_message = "File not found - cannot preview".to_string();
+                return Ok(());
+            }
+            
+            if let Ok(content) = self.configs_module.view_config(self.selected_index) {
                 let total = content.lines().count();
                 self.status_message = format!("Preview: {} lines", total);
                 // Store the preview content for the info panel
                 self.configs_module.set_preview_content(content);
             }
+        }
         Ok(())
     }
 
