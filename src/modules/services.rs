@@ -102,7 +102,6 @@ impl ServicesModule {
             ServiceManager::Launchd => self.refresh_launchd()?,
             #[cfg(target_os = "windows")]
             ServiceManager::WindowsService => self.refresh_windows()?,
-            #[cfg(target_os = "linux")]
             ServiceManager::Unknown => {}
         }
 
@@ -362,7 +361,6 @@ impl ServicesModule {
             ServiceManager::Launchd => self.launchd_start(&service.name),
             #[cfg(target_os = "windows")]
             ServiceManager::WindowsService => self.windows_start(&service.name),
-            #[cfg(target_os = "linux")]
             ServiceManager::Unknown => Ok("Unknown service manager".to_string()),
         }
     }
@@ -381,7 +379,6 @@ impl ServicesModule {
             ServiceManager::Launchd => self.launchd_stop(&service.name),
             #[cfg(target_os = "windows")]
             ServiceManager::WindowsService => self.windows_stop(&service.name),
-            #[cfg(target_os = "linux")]
             ServiceManager::Unknown => Ok("Unknown service manager".to_string()),
         }
     }
@@ -400,7 +397,6 @@ impl ServicesModule {
             ServiceManager::Launchd => self.launchd_restart(&service.name),
             #[cfg(target_os = "windows")]
             ServiceManager::WindowsService => self.windows_restart(&service.name),
-            #[cfg(target_os = "linux")]
             ServiceManager::Unknown => Ok("Unknown service manager".to_string()),
         }
     }
@@ -419,7 +415,6 @@ impl ServicesModule {
             ServiceManager::Launchd => Ok("Launchd services are managed via plist files".to_string()),
             #[cfg(target_os = "windows")]
             ServiceManager::WindowsService => self.windows_enable(&service.name),
-            #[cfg(target_os = "linux")]
             ServiceManager::Unknown => Ok("Unknown service manager".to_string()),
         }
     }
@@ -438,7 +433,6 @@ impl ServicesModule {
             ServiceManager::Launchd => Ok("Launchd services are managed via plist files".to_string()),
             #[cfg(target_os = "windows")]
             ServiceManager::WindowsService => self.windows_disable(&service.name),
-            #[cfg(target_os = "linux")]
             ServiceManager::Unknown => Ok("Unknown service manager".to_string()),
         }
     }
@@ -457,7 +451,6 @@ impl ServicesModule {
             ServiceManager::Launchd => Ok("Log viewing not implemented for launchd".to_string()),
             #[cfg(target_os = "windows")]
             ServiceManager::WindowsService => Ok("Log viewing not implemented for Windows services".to_string()),
-            #[cfg(target_os = "linux")]
             ServiceManager::Unknown => Ok("Unknown service manager".to_string()),
         }
     }

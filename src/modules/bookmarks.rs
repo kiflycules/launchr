@@ -39,33 +39,33 @@ impl BookmarksModule {
         Ok(())
     }
 
-    fn open_url(&self, url: &str) -> Result<()> {
+    fn open_url(&self, _url: &str) -> Result<()> {
         #[cfg(target_os = "macos")]
-        { Command::new("open").arg(url).spawn()?; }
+        { Command::new("open").arg(_url).spawn()?; }
         #[cfg(target_os = "linux")]
-        { Command::new("xdg-open").arg(url).spawn()?; }
+        { Command::new("xdg-open").arg(_url).spawn()?; }
         #[cfg(target_os = "windows")]
-        { Command::new("cmd").args(&["/C", "start", url]).spawn()?; }
+        { Command::new("cmd").args(&["/C", "start", _url]).spawn()?; }
         Ok(())
     }
 
-    fn open_directory(&self, path: &str) -> Result<()> {
+    fn open_directory(&self, _path: &str) -> Result<()> {
         #[cfg(target_os = "macos")]
-        { Command::new("open").arg(path).spawn()?; }
+        { Command::new("open").arg(_path).spawn()?; }
         #[cfg(target_os = "linux")]
-        { Command::new("xdg-open").arg(path).spawn()?; }
+        { Command::new("xdg-open").arg(_path).spawn()?; }
         #[cfg(target_os = "windows")]
-        { Command::new("explorer").arg(path).spawn()?; }
+        { Command::new("explorer").arg(_path).spawn()?; }
         Ok(())
     }
 
-    fn open_file(&self, path: &str) -> Result<()> {
+    fn open_file(&self, _path: &str) -> Result<()> {
         #[cfg(target_os = "macos")]
-        { Command::new("open").arg(path).spawn()?; }
+        { Command::new("open").arg(_path).spawn()?; }
         #[cfg(target_os = "linux")]
-        { Command::new("xdg-open").arg(path).spawn()?; }
+        { Command::new("xdg-open").arg(_path).spawn()?; }
         #[cfg(target_os = "windows")]
-        { Command::new("cmd").args(&["/C", "start", "", path]).spawn()?; }
+        { Command::new("cmd").args(&["/C", "start", "", _path]).spawn()?; }
         Ok(())
     }
 

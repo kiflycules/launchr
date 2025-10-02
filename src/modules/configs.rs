@@ -305,26 +305,26 @@ impl ConfigsModule {
         }
 
         let config = &self.configs[index];
-        let dir = config.path.parent().unwrap_or(Path::new("."));
+        let _dir = config.path.parent().unwrap_or(Path::new("."));
 
         #[cfg(target_os = "macos")]
         {
             Command::new("open")
-                .arg(dir)
+                .arg(_dir)
                 .spawn()?;
         }
 
         #[cfg(target_os = "linux")]
         {
             Command::new("xdg-open")
-                .arg(dir)
+                .arg(_dir)
                 .spawn()?;
         }
 
         #[cfg(target_os = "windows")]
         {
             Command::new("explorer")
-                .arg(dir)
+                .arg(_dir)
                 .spawn()?;
         }
 

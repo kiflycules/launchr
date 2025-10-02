@@ -340,7 +340,7 @@ impl ScratchpadModule {
                     return editor.to_string();
                 }
             }
-            return "nano".to_string();
+            "nano".to_string()
         }
 
         #[cfg(target_os = "macos")]
@@ -351,7 +351,7 @@ impl ScratchpadModule {
                     return editor.to_string();
                 }
             }
-            return "open -e".to_string();
+            "open -e".to_string()
         }
 
         #[cfg(target_os = "windows")]
@@ -381,7 +381,13 @@ impl ScratchpadModule {
             }
             
             // Ultimate fallback - notepad always exists on Windows
-            return "notepad.exe".to_string();
+            "notepad.exe".to_string()
+        }
+
+        #[cfg(not(any(target_os = "linux", target_os = "macos", target_os = "windows")))]
+        {
+            // Fallback for unsupported platforms
+            "nano".to_string()
         }
     }
 
