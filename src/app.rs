@@ -89,6 +89,7 @@ pub struct App {
     pub calculator_history_selected: usize,
     pub calculator_button_position: Option<(usize, usize)>, // (row, col)
     pub calculator_show_history: bool, // toggle between calculator and history view
+    pub calculator_scroll_offset: usize, // scroll offset for button grid
 }
 
 #[derive(Debug, Clone)]
@@ -162,6 +163,7 @@ impl App {
             calculator_history_selected: 0,
             calculator_button_position: Some((0, 0)),
             calculator_show_history: false,
+            calculator_scroll_offset: 0,
         })
     }
 
@@ -1264,6 +1266,7 @@ impl App {
 
     pub fn calculator_toggle_mode(&mut self) {
         self.calculator_module.toggle_mode();
+        self.calculator_scroll_offset = 0; // Reset scroll when changing modes
     }
 
     pub fn calculator_copy_result(&mut self) -> Result<()> {
@@ -1298,7 +1301,7 @@ impl App {
 
     pub fn open_calculator(&mut self) {
         self.state = AppState::Calculator;
-        self.status_message = "Calculator mode - type expressions or use scientific functions".to_string();
+        self.status_message = "Typing mode - type expressions or use scientific functions".to_string();
     }
 
     pub fn close_calculator(&mut self) {
@@ -1315,10 +1318,27 @@ impl App {
         }
     }
 
+    pub fn calculator_scroll_up(&mut self) {
+        if self.calculator_scroll_offset > 0 {
+            self.calculator_scroll_offset -= 1;
+        }
+    }
+
+    pub fn calculator_scroll_down(&mut self) {
+        let buttons = self.get_calculator_buttons();
+        let max_scroll = buttons.len().saturating_sub(6); // Show 6 rows at a time
+        if self.calculator_scroll_offset < max_scroll {
+            self.calculator_scroll_offset += 1;
+        }
+    }
+
     pub fn calculator_button_up(&mut self) {
         if let Some((row, col)) = self.calculator_button_position {
             if row > 0 {
                 self.calculator_button_position = Some((row - 1, col));
+            } else if self.calculator_scroll_offset > 0 {
+                // Scroll up when at top
+                self.calculator_scroll_up();
             }
         }
     }
@@ -1326,8 +1346,14 @@ impl App {
     pub fn calculator_button_down(&mut self) {
         if let Some((row, col)) = self.calculator_button_position {
             let buttons = self.get_calculator_buttons();
-            if row < buttons.len() - 1 {
-                self.calculator_button_position = Some((row + 1, col));
+            // For now, use a simple approach - scroll when needed
+            if (self.calculator_scroll_offset + row + 1) < buttons.len() {
+                if row < 5 { // Allow up to 6 rows (0-5)
+                    self.calculator_button_position = Some((row + 1, col));
+                } else {
+                    // Scroll down when at bottom
+                    self.calculator_scroll_down();
+                }
             }
         }
     }
@@ -1352,7 +1378,9 @@ impl App {
     pub fn calculator_press_button(&mut self) {
         if let Some((row, col)) = self.calculator_button_position {
             let buttons = self.get_calculator_buttons();
-            if let Some((_, key)) = buttons[row].get(col) {
+            let actual_row = self.calculator_scroll_offset + row;
+            if actual_row < buttons.len() {
+                if let Some((_, key)) = buttons[actual_row].get(col) {
                 match *key {
                     "0" | "1" | "2" | "3" | "4" | "5" | "6" | "7" | "8" | "9" => {
                         self.calculator_input_digit(key.chars().next().unwrap())
@@ -1392,6 +1420,7 @@ impl App {
                     "i" => self.calculator_apply_function("1/x"),
                     "x" => self.calculator_apply_function("x^2"),
                     _ => {}
+                }
                 }
             }
         }

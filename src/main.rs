@@ -86,7 +86,11 @@ async fn run_app<B: ratatui::backend::Backend>(
                     KeyCode::Char(']') => app.current_section = MenuSection::Services,
                     KeyCode::Char('`') => {
                         if app.current_section == MenuSection::Calculator {
-                            app.open_calculator();
+                            if app.state == crate::app::AppState::Calculator {
+                                app.close_calculator(); // Exit typing mode
+                            } else {
+                                app.open_calculator(); // Enter typing mode
+                            }
                         } else {
                             app.current_section = MenuSection::Calculator;
                         }
@@ -94,7 +98,9 @@ async fn run_app<B: ratatui::backend::Backend>(
                     KeyCode::Char('[') => app.current_section = MenuSection::Notifications,
                     KeyCode::Char('\\') => app.current_section = MenuSection::Configs,
                     KeyCode::Up | KeyCode::Char('k') => {
-                        if app.current_section == MenuSection::Configs
+                        if app.current_section == MenuSection::Calculator {
+                            app.calculator_button_up();
+                        } else if app.current_section == MenuSection::Configs
                             && app.configs_module.preview_mode
                         {
                             app.configs_module.scroll_preview_up();
@@ -103,12 +109,24 @@ async fn run_app<B: ratatui::backend::Backend>(
                         }
                     }
                     KeyCode::Down | KeyCode::Char('j') => {
-                        if app.current_section == MenuSection::Configs
+                        if app.current_section == MenuSection::Calculator {
+                            app.calculator_button_down();
+                        } else if app.current_section == MenuSection::Configs
                             && app.configs_module.preview_mode
                         {
                             app.configs_module.scroll_preview_down();
                         } else {
                             app.next_item();
+                        }
+                    }
+                    KeyCode::Left => {
+                        if app.current_section == MenuSection::Calculator {
+                            app.calculator_button_left();
+                        }
+                    }
+                    KeyCode::Right => {
+                        if app.current_section == MenuSection::Calculator {
+                            app.calculator_button_right();
                         }
                     }
                     KeyCode::PageUp => app.page_up(),
@@ -117,14 +135,23 @@ async fn run_app<B: ratatui::backend::Backend>(
                     KeyCode::End => app.go_end(),
                     KeyCode::Char('/') => app.open_search(),
                     KeyCode::Enter => {
-                        if let Err(e) = app.activate_item().await {
+                        if app.current_section == MenuSection::Calculator {
+                            app.calculator_press_button();
+                        } else if let Err(e) = app.activate_item().await {
                             app.report_error("Action failed", e);
+                        }
+                    }
+                    KeyCode::Char(' ') => {
+                        if app.current_section == MenuSection::Calculator {
+                            app.calculator_press_button();
                         }
                     }
                     KeyCode::Char('n') => app.new_item(),
                     KeyCode::Char('d') => app.delete_item(),
                     KeyCode::Char('r') => {
-                        if let Err(e) = app.refresh().await {
+                        if app.current_section == MenuSection::Calculator {
+                            app.calculator_recall_from_history();
+                        } else if let Err(e) = app.refresh().await {
                             app.report_error("Refresh failed", e);
                         }
                     }
@@ -255,7 +282,9 @@ async fn run_app<B: ratatui::backend::Backend>(
                         }
                     }
                     KeyCode::Char('h') => {
-                        if app.current_section == MenuSection::Shell {
+                        if app.current_section == MenuSection::Calculator {
+                            app.calculator_toggle_history();
+                        } else if app.current_section == MenuSection::Shell {
                             app.shell_search_history();
                         }
                     }
@@ -287,6 +316,13 @@ async fn run_app<B: ratatui::backend::Backend>(
                             app.configs_module.exit_preview_mode();
                         } else {
                             app.cancel_input();
+                        }
+                    }
+                    // Calculator section controls
+                    KeyCode::Char('m') => {
+                        if app.current_section == MenuSection::Calculator {
+                            app.calculator_toggle_mode();
+                            app.calculator_button_position = Some((0, 0));
                         }
                     }
                     _ => {}
@@ -371,15 +407,22 @@ async fn run_app<B: ratatui::backend::Backend>(
                     KeyCode::Down => app.calculator_button_down(),
                     KeyCode::Left => app.calculator_button_left(),
                     KeyCode::Right => app.calculator_button_right(),
-                    KeyCode::Enter | KeyCode::Char(' ') => app.calculator_press_button(),
+                    KeyCode::Enter => {
+                        // If no button is selected, calculate; otherwise press button
+                        if app.calculator_button_position.is_none() {
+                            app.calculator_calculate();
+                        } else {
+                            app.calculator_press_button();
+                        }
+                    }
+                    KeyCode::Char(' ') => app.calculator_press_button(),
                     KeyCode::Char('m') => {
                         app.calculator_toggle_mode();
                         // Reset button position to first button when changing modes
                         app.calculator_button_position = Some((0, 0));
                     }
-                    KeyCode::Char('r') => app.calculator_recall_from_history(),
                     KeyCode::Char('h') => app.calculator_toggle_history(),
-                    // Direct key input still works
+                    // Calculator mode is for typing expressions
                     KeyCode::Char(c @ '0'..='9') => app.calculator_input_digit(c),
                     KeyCode::Char('.') => app.calculator_decimal(),
                     KeyCode::Char('+') => app.calculator_input_operator("+"),
@@ -408,6 +451,7 @@ async fn run_app<B: ratatui::backend::Backend>(
                     }
                     KeyCode::Char('k') => app.calculator_prev_history(),
                     KeyCode::Char('j') => app.calculator_next_history(),
+                    KeyCode::Char('r') => app.calculator_recall_from_history(),
                     // Scientific mode functions
                     KeyCode::Char('s') if app.calculator_module.mode 
                         == crate::modules::calculator::CalculatorMode::Scientific => {

@@ -1080,6 +1080,8 @@ fn draw_status(f: &mut Frame, app: &App, area: Rect) {
                 "q: Quit | s: Start | S: Stop | R: Restart | E: Enable | D: Disable | l: Logs | u: User/System | f: Search | r: Refresh"
             } else if app.current_section == MenuSection::Configs {
                 "q: Quit | n: New | d: Delete | Enter: Open | b: Backup | v: View | c: Copy | o: Open Folder | f: Search | r: Refresh | t: Toggle"
+            } else if app.current_section == MenuSection::Calculator {
+                "q: Quit | `: Calculator Mode | ←→↑↓: Navigate buttons | Enter/Space: Press button | m: Toggle mode | h: History | r: Recall"
             } else {
                 "q: Quit | Tab/Shift+Tab: Next/Prev Section | ↑↓/jk: Navigate | Enter: Select | n: New | d: Delete | r: Refresh | s: Stop Process | x: Disconnect SSH | t: Toggle"
             }
@@ -1092,8 +1094,8 @@ fn draw_status(f: &mut Frame, app: &App, area: Rect) {
         AppState::ShellInput => "Enter: Execute | Esc: Cancel | Type shell command",
         AppState::Calculator => {
             match app.calculator_module.mode {
-                crate::modules::calculator::CalculatorMode::Basic => "Calculator Mode: Basic (m: toggle mode, h: history, Esc: exit, ←→↑↓: navigate buttons)",
-                crate::modules::calculator::CalculatorMode::Scientific => "Calculator Mode: Scientific (m: toggle mode, h: history, Esc: exit, ←→↑↓: navigate buttons)",
+                crate::modules::calculator::CalculatorMode::Basic => "Typing Mode: Basic (m: switch to scientific, h: history, `: exit, type expressions)",
+                crate::modules::calculator::CalculatorMode::Scientific => "Typing Mode: Scientific (m: switch to basic, h: history, `: exit, type expressions)",
             }
         },
     };
@@ -1908,7 +1910,7 @@ fn draw_calculator(f: &mut Frame, app: &App, area: Rect) {
 
 fn draw_calculator_buttons(f: &mut Frame, app: &App, area: Rect) {
     // Define button layout based on mode
-    let buttons = match app.calculator_module.mode {
+    let all_buttons = match app.calculator_module.mode {
         crate::modules::calculator::CalculatorMode::Basic => vec![
             vec![("C", "c"), ("CE", "C"), ("⌫", "bksp"), ("÷", "/")],
             vec![("7", "7"), ("8", "8"), ("9", "9"), ("×", "*")],
@@ -1929,8 +1931,26 @@ fn draw_calculator_buttons(f: &mut Frame, app: &App, area: Rect) {
         ],
     };
 
+    // Only use scrolling for Scientific mode (8 rows) or when terminal is very small
+    let min_row_height = 3; // Allow smaller rows to fit more content
+    let max_visible_rows = (area.height.saturating_sub(2)) / min_row_height;
+    let needs_scrolling = all_buttons.len() > max_visible_rows as usize;
+    
+    let (visible_rows, buttons) = if needs_scrolling {
+        // Use scrolling - show up to 6 rows at a time
+        let visible_rows = std::cmp::min(6, max_visible_rows as usize);
+        let start_row = app.calculator_scroll_offset;
+        let end_row = std::cmp::min(start_row + visible_rows, all_buttons.len());
+        let buttons: Vec<_> = all_buttons[start_row..end_row].to_vec();
+        (visible_rows, buttons)
+    } else {
+        // No scrolling needed - show all buttons
+        let buttons = all_buttons.clone();
+        (buttons.len(), buttons)
+    };
+
     let num_rows = buttons.len();
-    let row_height = std::cmp::max(5, (area.height.saturating_sub(2)) / num_rows as u16);
+    let row_height = std::cmp::max(min_row_height, (area.height.saturating_sub(2)) / visible_rows as u16);
 
     // Create vertical layout for rows
     let row_constraints = vec![Constraint::Length(row_height); num_rows];
@@ -1944,9 +1964,15 @@ fn draw_calculator_buttons(f: &mut Frame, app: &App, area: Rect) {
             height: area.height.saturating_sub(2),
         });
 
-    // Draw border
+    // Draw border with scroll info
+    let scroll_info = if needs_scrolling {
+        format!("Calculator Buttons (←→↑↓: navigate, Enter/Space: press) [{}/{}]", 
+                app.calculator_scroll_offset + 1, all_buttons.len())
+    } else {
+        "Calculator Buttons (←→↑↓: navigate, Enter/Space: press)".to_string()
+    };
     let border = Block::default()
-        .title("Calculator Buttons (←→↑↓: navigate, Enter/Space: press)")
+        .title(scroll_info)
         .borders(Borders::ALL);
     f.render_widget(border, area);
 
