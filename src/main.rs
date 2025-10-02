@@ -72,6 +72,7 @@ async fn run_app<B: ratatui::backend::Backend>(
                         KeyCode::Char('=') => app.current_section = MenuSection::Shell,
                         KeyCode::Char(']') => app.current_section = MenuSection::Services,
                         KeyCode::Char('[') => app.current_section = MenuSection::Notifications,
+                        KeyCode::Char('\\') => app.current_section = MenuSection::Configs,
                         KeyCode::Up | KeyCode::Char('k') => app.previous_item(),
                         KeyCode::Down | KeyCode::Char('j') => app.next_item(),
                         KeyCode::PageUp => app.page_up(),
@@ -140,7 +141,11 @@ async fn run_app<B: ratatui::backend::Backend>(
                         }
                         KeyCode::Char('x') => app.disconnect_latest_session(),
                         KeyCode::Char('v') => {
-                            if app.current_section == MenuSection::Docker {
+                            if app.current_section == MenuSection::Configs {
+                                if let Err(e) = app.view_selected_config() {
+                                    app.report_error("View failed", e);
+                                }
+                            } else if app.current_section == MenuSection::Docker {
                                 // Cycle through Docker views
                                 use crate::modules::docker::DockerView;
                                 app.docker_module.current_view = match app.docker_module.current_view {
@@ -172,10 +177,16 @@ async fn run_app<B: ratatui::backend::Backend>(
                                 app.scratchpad_search();
                             } else if app.current_section == MenuSection::Services {
                                 app.search_services();
+                            } else if app.current_section == MenuSection::Configs {
+                                app.search_configs();
                             }
                         }
                         KeyCode::Char('c') => {
-                            if app.current_section == MenuSection::Scratchpad {
+                            if app.current_section == MenuSection::Configs {
+                                if let Err(e) = app.config_copy_to_clipboard() {
+                                    app.report_error("Copy failed", e);
+                                }
+                            } else if app.current_section == MenuSection::Scratchpad {
                                 if let Err(e) = app.scratchpad_copy_to_clipboard() {
                                     app.report_error("Copy failed", e);
                                 }
@@ -199,6 +210,20 @@ async fn run_app<B: ratatui::backend::Backend>(
                         KeyCode::Char('C') => {
                             if app.current_section == MenuSection::Shell {
                                 app.shell_clear_history();
+                            }
+                        }
+                        KeyCode::Char('b') => {
+                            if app.current_section == MenuSection::Configs {
+                                if let Err(e) = app.backup_selected_config() {
+                                    app.report_error("Backup failed", e);
+                                }
+                            }
+                        }
+                        KeyCode::Char('o') => {
+                            if app.current_section == MenuSection::Configs {
+                                if let Err(e) = app.open_config_in_file_manager() {
+                                    app.report_error("Open folder failed", e);
+                                }
                             }
                         }
                         KeyCode::Tab => app.next_section(),

@@ -48,6 +48,7 @@ pub struct ConfigFile {
 #[derive(Clone, Debug)]
 pub struct Config {
     pub path: PathBuf,
+    pub config_directory: PathBuf,
     pub bookmarks: Vec<BookmarkConfig>,
     pub ssh_hosts: Vec<SSHHostConfig>,
     pub scripts: Vec<ScriptConfig>,
@@ -68,7 +69,8 @@ impl Config {
         let content = fs::read_to_string(&path).with_context(|| format!("Reading {:?}", &path))?;
         let cfg: ConfigFile = toml::from_str(&content).with_context(|| "Parsing config TOML")?;
         Ok(Self { 
-            path, 
+            path: path.clone(), 
+            config_directory: path.parent().unwrap_or(&PathBuf::from(".")).to_path_buf(),
             bookmarks: cfg.bookmarks, 
             ssh_hosts: cfg.ssh_hosts, 
             scripts: cfg.scripts,

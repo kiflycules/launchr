@@ -7,6 +7,7 @@ use ratatui::{
 };
 
 use crate::app::{App, AppState, MenuSection};
+use crate::modules::configs::ConfigsModule;
 
 pub fn draw(f: &mut Frame, app: &App) {
     let chunks = Layout::default()
@@ -32,6 +33,7 @@ pub fn draw(f: &mut Frame, app: &App) {
         MenuSection::Apps => draw_apps(f, app, main_chunks[1]),
         MenuSection::Bookmarks => draw_bookmarks(f, app, main_chunks[1]),
         MenuSection::Clipboard => draw_clipboard(f, app, main_chunks[1]),
+        MenuSection::Configs => draw_configs(f, app, main_chunks[1]),
         MenuSection::Docker => draw_docker(f, app, main_chunks[1]),
         MenuSection::Network => draw_network(f, app, main_chunks[1]),
         MenuSection::SSH => draw_ssh(f, app, main_chunks[1]),
@@ -96,6 +98,7 @@ fn draw_menu(f: &mut Frame, app: &App, area: Rect) {
         ("2", "Apps", MenuSection::Apps),
         ("3", "Bookmarks", MenuSection::Bookmarks),
         ("4", "Clipboard", MenuSection::Clipboard),
+        ("\\", "Configs", MenuSection::Configs),
         ("5", "Docker", MenuSection::Docker),
         ("6", "Network", MenuSection::Network),
         ("7", "SSH", MenuSection::SSH),
@@ -866,6 +869,8 @@ fn draw_status(f: &mut Frame, app: &App, area: Rect) {
                 "q: Quit | n: New | c: Copy | e: Export | R: Rename | f: Search | Enter: Open | d: Delete"
             } else if app.current_section == MenuSection::Services {
                 "q: Quit | s: Start | S: Stop | R: Restart | E: Enable | D: Disable | l: Logs | u: User/System | f: Search | r: Refresh"
+            } else if app.current_section == MenuSection::Configs {
+                "q: Quit | n: New | d: Delete | Enter: Open | b: Backup | v: View | c: Copy | o: Open Folder | f: Search | r: Refresh | t: Toggle"
             } else {
                 "q: Quit | Tab/Shift+Tab: Next/Prev Section | ↑↓/jk: Navigate | Enter: Select | n: New | d: Delete | r: Refresh | s: Stop Process | x: Disconnect SSH | t: Toggle"
             }
@@ -936,7 +941,7 @@ fn centered_rect(percent_x: u16, percent_y: u16, r: Rect) -> Rect {
 
 fn draw_help_popup(f: &mut Frame) {
     let area = centered_rect(70, 75, f.area());
-    let help = "launchr Help\n\nNavigation:\n  q: Quit  |  ?: Toggle this help\n  Tab/Shift+Tab: Next/Previous Section\n  1-9,0,-,=,[: Jump to section\n    1=Dashboard  2=Apps  3=Bookmarks  4=Clipboard  5=Docker  6=Network\n    7=SSH  8=Scripts  9=Git  0=History  -=Scratchpad  ==Shell  [=Notifications\n  j/k or ↑/↓: Navigate items  |  PgUp/PgDn, Home/End: Jump\n  /: Fuzzy search (type to filter, Enter to jump, Esc to close)\n\nGeneral Actions:\n  Enter: Activate/Open  |  n: New  |  d: Delete  |  r: Refresh  |  t: Toggle details\n\nSection-Specific:\n  Dashboard/Apps: s=stop process\n  Docker/Network: v=switch view  |  Network: f=filter\n  SSH: x=disconnect latest\n  Scripts: S=schedule  |  Git: S=scan repos\n  Scratchpad: c=copy, e=export, R=rename, f=search\n  Shell: i=input command, h=search history, C=clear history\n\nSections:\n  Dashboard: Running processes  |  Apps: Launch apps\n  Bookmarks: Quick links  |  Clipboard: Clipboard history\n  Docker: Containers/Images  |  Network: Connections/Interfaces/Ports\n  SSH: Remote connections  |  Scripts: Run commands\n  Git: Repository status  |  History: Shell command history\n  Scratchpad: Quick notes  |  Shell: Embedded terminal\n  Notifications: System messages";
+    let help = "launchr Help\n\nNavigation:\n  q: Quit  |  ?: Toggle this help\n  Tab/Shift+Tab: Next/Previous Section\n  1-9,0,-,=,\\,[,]: Jump to section\n    1=Dashboard  2=Apps  3=Bookmarks  4=Clipboard  \\=Configs  5=Docker  6=Network\n    7=SSH  8=Scripts  9=Git  0=History  -=Scratchpad  ==Shell  ]=Services  [=Notifications\n  j/k or ↑/↓: Navigate items  |  PgUp/PgDn, Home/End: Jump\n  /: Fuzzy search (type to filter, Enter to jump, Esc to close)\n\nGeneral Actions:\n  Enter: Activate/Open  |  n: New  |  d: Delete  |  r: Refresh  |  t: Toggle details\n\nSection-Specific:\n  Dashboard/Apps: s=stop process\n  Configs: b=backup, v=view, c=copy, o=open folder, f=search\n  Docker/Network: v=switch view  |  Network: f=filter\n  SSH: x=disconnect latest\n  Scripts: S=schedule  |  Git: S=scan repos\n  Scratchpad: c=copy, e=export, R=rename, f=search\n  Shell: i=input command, h=search history, C=clear history\n\nSections:\n  Dashboard: Running processes  |  Apps: Launch apps\n  Bookmarks: Quick links  |  Clipboard: Clipboard history\n  Configs: Configuration files  |  Docker: Containers/Images\n  Network: Connections/Interfaces/Ports  |  SSH: Remote connections\n  Scripts: Run commands  |  Git: Repository status\n  History: Shell command history  |  Scratchpad: Quick notes\n  Shell: Embedded terminal  |  Services: System services\n  Notifications: System messages";
 
     let paragraph = Paragraph::new(help)
         .block(
@@ -1307,4 +1312,105 @@ fn draw_services(f: &mut Frame, app: &App, area: Rect) {
     }
 }
 
+fn draw_configs(f: &mut Frame, app: &App, area: Rect) {
+    let chunks = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints([Constraint::Percentage(70), Constraint::Percentage(30)])
+        .split(area);
+
+    let items: Vec<ListItem> = app
+        .configs_module
+        .configs
+        .iter()
+        .enumerate()
+        .map(|(i, config)| {
+            let style = if i == app.selected_index {
+                Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)
+            } else {
+                Style::default()
+            };
+            
+            let exists_icon = if config.exists { "✓" } else { "✗" };
+            let category_color = match config.category.as_str() {
+                "Shell" => Color::Green,
+                "Git" => Color::Cyan,
+                "SSH" => Color::Magenta,
+                "Editor" => Color::Blue,
+                _ => Color::White,
+            };
+            
+            let truncated_path = if config.path.to_string_lossy().len() > 40 {
+                format!("{}...", &config.path.to_string_lossy()[..37])
+            } else {
+                config.path.to_string_lossy().to_string()
+            };
+            
+            let size_info = if let Some(size) = config.file_size {
+                format!(" ({})", ConfigsModule::format_file_size(size))
+            } else {
+                String::new()
+            };
+            
+            let modified_info = if let Some(ref modified) = config.last_modified {
+                format!(" [{}]", modified)
+            } else {
+                String::new()
+            };
+            
+            ListItem::new(Line::from(vec![
+                Span::styled(exists_icon, Style::default().fg(if config.exists { Color::Green } else { Color::Red })),
+                Span::raw(" "),
+                Span::styled(format!("{:<20}", config.name), style),
+                Span::styled(format!("[{}] ", config.category), Style::default().fg(category_color)),
+                Span::raw(format!("{}", truncated_path)),
+                Span::styled(size_info, Style::default().fg(Color::Gray)),
+                Span::styled(modified_info, Style::default().fg(Color::Gray)),
+            ]))
+        })
+        .collect();
+
+    if items.is_empty() {
+        let empty = Paragraph::new("No configs found. Press 'n' to add")
+            .block(Block::default().title("Configs").borders(Borders::ALL));
+        f.render_widget(empty, chunks[0]);
+    } else {
+        let list = List::new(items)
+            .block(Block::default().title("Configs (n: new, d: delete, Enter: open, b: backup, v: view, c: copy, o: open folder, f: search)").borders(Borders::ALL));
+        f.render_widget(list, chunks[0]);
+    }
+
+    // Details pane
+    if app.show_detail && app.selected_index < app.configs_module.configs.len() {
+        let config = &app.configs_module.configs[app.selected_index];
+        let mut detail_text = format!(
+            "Name: {}\nPath: {}\nCategory: {}\nDescription: {}\nExists: {}",
+            config.name,
+            config.path.display(),
+            config.category,
+            config.description,
+            if config.exists { "Yes" } else { "No" }
+        );
+
+        if let Some(ref editor) = config.editor {
+            detail_text.push_str(&format!("\nEditor: {}", editor));
+        }
+
+        if let Some(size) = config.file_size {
+            detail_text.push_str(&format!("\nSize: {}", ConfigsModule::format_file_size(size)));
+        }
+
+        if let Some(ref modified) = config.last_modified {
+            detail_text.push_str(&format!("\nLast Modified: {}", modified));
+        }
+
+        let detail = Paragraph::new(detail_text)
+            .block(Block::default().title("Details (t to toggle)").borders(Borders::ALL))
+            .wrap(Wrap { trim: false });
+        f.render_widget(detail, chunks[1]);
+    } else {
+        let help = Paragraph::new("Press 't' to toggle config details\nPress 'v' to preview config content")
+            .block(Block::default().title("Info").borders(Borders::ALL));
+        f.render_widget(help, chunks[1]);
+    }
+}
 

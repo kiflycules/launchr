@@ -6,6 +6,7 @@ use crate::modules::{
     apps::AppsModule,
     bookmarks::BookmarksModule,
     clipboard::ClipboardModule,
+    configs::ConfigsModule,
     docker::DockerModule,
     git::GitModule,
     network::NetworkModule,
@@ -24,6 +25,7 @@ pub enum MenuSection {
     Apps,
     Bookmarks,
     Clipboard,
+    Configs,
     Docker,
     Network,
     SSH,
@@ -60,6 +62,7 @@ pub struct App {
     pub apps_module: AppsModule,
     pub bookmarks_module: BookmarksModule,
     pub clipboard_module: ClipboardModule,
+    pub configs_module: ConfigsModule,
     pub docker_module: DockerModule,
     pub git_module: GitModule,
     pub network_module: NetworkModule,
@@ -106,6 +109,7 @@ impl App {
 
         let bookmarks_module = BookmarksModule::new(&config);
         let clipboard_module = ClipboardModule::new();
+        let configs_module = ConfigsModule::new(Some(config.config_directory.clone()))?;
         let docker_module = DockerModule::new();
         let git_module = GitModule::new(&config.git_search_paths);
         let network_module = NetworkModule::new();
@@ -131,6 +135,7 @@ impl App {
             apps_module,
             bookmarks_module,
             clipboard_module,
+            configs_module,
             docker_module,
             git_module,
             network_module,
@@ -271,6 +276,17 @@ impl App {
                 // Network view doesn't have a default action on Enter
                 self.status_message = "Use 'v' to switch views, 'f' to filter".to_string();
             }
+            MenuSection::Configs => {
+                if self.selected_index < self.configs_module.configs.len() {
+                    if let Err(e) = self.configs_module.open_config(self.selected_index) {
+                        self.status_message = format!("Failed to open config: {}", e);
+                    } else {
+                        let config_name = &self.configs_module.configs[self.selected_index].name;
+                        self.status_message = format!("Opened config: {}", config_name);
+                        self.notifications_module.push("Config", &format!("Opened {}", config_name), "info");
+                    }
+                }
+            }
             _ => {}
         }
         Ok(())
@@ -282,6 +298,7 @@ impl App {
         self.input_cursor = 0;
         self.input_prompt = match self.current_section {
             MenuSection::Bookmarks => "Enter bookmark (name|path|type): ".to_string(),
+            MenuSection::Configs => "Enter config (name|path|category|description|editor): ".to_string(),
             MenuSection::SSH => "Enter SSH host (name|user@host:port): ".to_string(),
             MenuSection::Scripts => "Enter script (name|command): ".to_string(),
             MenuSection::Scratchpad => "Enter note name (or leave empty for auto-name): ".to_string(),
@@ -348,6 +365,13 @@ impl App {
                     self.status_message = format!("Failed to refresh services: {}", e);
                 } else {
                     self.status_message = "Refreshed services".to_string();
+                }
+            }
+            MenuSection::Configs => {
+                if let Err(e) = self.configs_module.refresh() {
+                    self.status_message = format!("Failed to refresh configs: {}", e);
+                } else {
+                    self.status_message = "Refreshed configs".to_string();
                 }
             }
             _ => {}
@@ -507,7 +531,8 @@ impl App {
             MenuSection::Dashboard => MenuSection::Apps,
             MenuSection::Apps => MenuSection::Bookmarks,
             MenuSection::Bookmarks => MenuSection::Clipboard,
-            MenuSection::Clipboard => MenuSection::Docker,
+            MenuSection::Clipboard => MenuSection::Configs,
+            MenuSection::Configs => MenuSection::Docker,
             MenuSection::Docker => MenuSection::Network,
             MenuSection::Network => MenuSection::SSH,
             MenuSection::SSH => MenuSection::Scripts,
@@ -528,7 +553,8 @@ impl App {
             MenuSection::Apps => MenuSection::Dashboard,
             MenuSection::Bookmarks => MenuSection::Apps,
             MenuSection::Clipboard => MenuSection::Bookmarks,
-            MenuSection::Docker => MenuSection::Clipboard,
+            MenuSection::Configs => MenuSection::Clipboard,
+            MenuSection::Docker => MenuSection::Configs,
             MenuSection::Network => MenuSection::Docker,
             MenuSection::SSH => MenuSection::Network,
             MenuSection::Scripts => MenuSection::SSH,
@@ -593,6 +619,16 @@ impl App {
                     self.execute_service_search(input);
                 }
             }
+            MenuSection::Configs => {
+                // Check if this is a search action
+                if self.input_prompt.starts_with("Search configs") {
+                    self.execute_configs_search(input);
+                } else {
+                    self.configs_module.add_from_string(&input)?;
+                    self.status_message = "Config added".to_string();
+                    self.notifications_module.push("Config Added", &input, "info");
+                }
+            }
             _ => {}
         }
         self.cancel_input();
@@ -623,6 +659,11 @@ impl App {
                     self.status_message = "Note deleted".to_string();
                     self.notifications_module.push("Note Deleted", "", "warning");
                 }
+            }
+            MenuSection::Configs => {
+                self.configs_module.delete(self.selected_index)?;
+                self.status_message = "Config deleted".to_string();
+                self.notifications_module.push("Config Deleted", "", "warning");
             }
             _ => {}
         }
@@ -688,6 +729,7 @@ impl App {
             },
             MenuSection::Bookmarks => self.bookmarks_module.bookmarks.len(),
             MenuSection::Clipboard => self.clipboard_module.entries.len(),
+            MenuSection::Configs => self.configs_module.configs.len(),
             MenuSection::Docker => {
                 match self.docker_module.current_view {
                     crate::modules::docker::DockerView::Containers => self.docker_module.containers.len(),
@@ -906,6 +948,14 @@ impl App {
                     }
                 }
             }
+            MenuSection::Configs => {
+                for (i, cfg) in self.configs_module.configs.iter().enumerate() {
+                    let label = format!("Config: {} - {} ({})", cfg.name, cfg.path.display(), cfg.category);
+                    if let Some(score) = score_match(&label, &self.search_query) {
+                        results.push(SearchResult { section: MenuSection::Configs, index: i, label, score });
+                    }
+                }
+            }
         }
 
         if self.search_query.is_empty() { for r in results.iter_mut() { r.score = 0; } }
@@ -1079,6 +1129,63 @@ impl App {
             }
         }
         Ok(())
+    }
+    
+    // Configs helper methods
+    pub fn backup_selected_config(&mut self) -> Result<()> {
+        if self.current_section == MenuSection::Configs {
+            if let Ok(backup_path) = self.configs_module.backup_config(self.selected_index) {
+                self.status_message = format!("Backed up to: {}", backup_path);
+                self.notifications_module.push("Config", "Backup created", "info");
+            }
+        }
+        Ok(())
+    }
+
+    pub fn view_selected_config(&mut self) -> Result<()> {
+        if self.current_section == MenuSection::Configs {
+            if let Ok(content) = self.configs_module.view_config(self.selected_index) {
+                self.status_message = format!("Preview: {} lines", content.lines().count());
+            }
+        }
+        Ok(())
+    }
+
+    pub fn config_copy_to_clipboard(&mut self) -> Result<()> {
+        if self.current_section == MenuSection::Configs {
+            if let Ok(content) = self.configs_module.copy_to_clipboard(self.selected_index) {
+                self.status_message = format!("Copied {} bytes to clipboard", content.len());
+                self.notifications_module.push("Config", "Copied to clipboard", "info");
+            }
+        }
+        Ok(())
+    }
+    
+    pub fn open_config_in_file_manager(&mut self) -> Result<()> {
+        if self.current_section == MenuSection::Configs {
+            if let Err(e) = self.configs_module.open_in_file_manager(self.selected_index) {
+                self.report_error("Open folder failed", e);
+            }
+        }
+        Ok(())
+    }
+    
+    pub fn search_configs(&mut self) {
+        if self.current_section == MenuSection::Configs {
+            self.state = AppState::Input;
+            self.input_buffer.clear();
+            self.input_cursor = 0;
+            self.input_prompt = "Search configs: ".to_string();
+        }
+    }
+    
+    pub fn execute_configs_search(&mut self, query: String) {
+        let results = self.configs_module.search(&query);
+        self.status_message = format!("Found {} configs matching \"{}\"", results.len(), query);
+        if !results.is_empty() {
+            self.selected_index = results[0];
+            self.notifications_module.push("Configs", &format!("Found {} matches", results.len()), "info");
+        }
     }
 }
 

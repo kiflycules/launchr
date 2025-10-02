@@ -1,6 +1,6 @@
 ## launchr
 
-A fast terminal dashboard to launch, monitor, and manage apps, bookmarks, clipboard history, Docker containers, Git repositories, network connections, SSH hosts, scripts, notifications, shell history, quick notes (scratchpad), and an embedded shell terminal. Built in Rust with ratatui.
+A fast terminal dashboard to launch, monitor, and manage apps, bookmarks, clipboard history, configuration files, Docker containers, Git repositories, network connections, SSH hosts, scripts, notifications, shell history, quick notes (scratchpad), and an embedded shell terminal. Built in Rust with ratatui.
 
 ### Build
 - Prerequisites: Rust stable, Cargo
@@ -16,6 +16,7 @@ Tested on Linux/macOS/Windows. On Windows, run in a true terminal (Windows Termi
 - Help: `?` toggle help overlay
 - Apps: `Enter` launch, `s` stop process (also from Dashboard)
 - Clipboard: `Enter` copy to clipboard, `p` pin/unpin entry
+- Configs: `Enter` open in editor, `b` backup, `v` view, `c` copy, `o` open folder, `f` search
 - Docker: `Enter` exec into container, `v` switch view (containers/images), `a` toggle show all
 - Network: `v` switch view (connections/interfaces/ports), `f` filter connections by state
 - SSH: `x` disconnect latest session (terminates the ssh process)
@@ -25,13 +26,14 @@ Tested on Linux/macOS/Windows. On Windows, run in a true terminal (Windows Termi
 - Shell: `i` input command, `h` search history, `C` clear history
 - Services: `s` start, `S` stop, `r` restart, `E` enable, `D` disable, `l` logs, `u` toggle user/system, `f` filter, `t` details
 
-**Sections:** `1` Dashboard, `2` Apps, `3` Bookmarks, `4` Clipboard, `5` Docker, `6` Network, `7` SSH, `8` Scripts, `9` Git, `0` History, `-` Scratchpad, `=` Shell, `]` Services, `[` Notifications
+**Sections:** `1` Dashboard, `2` Apps, `3` Bookmarks, `4` Clipboard, `\` Configs, `5` Docker, `6` Network, `7` SSH, `8` Scripts, `9` Git, `0` History, `-` Scratchpad, `=` Shell, `]` Services, `[` Notifications
 
 ### Features
 - **Dashboard**: running processes (scrollable), active SSH sessions, recent notifications
 - **Apps**: auto-scan PATH for executables (on Windows, filters to .exe/.bat/.cmd/.ps1); show running processes via sysinfo
 - **Bookmarks**: open files/dirs/URLs with platform-native open
 - **Clipboard**: track clipboard history with timestamps, pin important entries, copy back to clipboard
+- **Configs**: manage configuration files with backup, preview, copy, and search functionality
 - **Docker**: view and manage containers and images; exec into running containers; toggle between running and all containers
 - **Git**: scan directories for repositories; view status, branch, uncommitted changes, ahead/behind commits; open repositories in editor
 - **Network**: monitor active connections with state filtering; view network interfaces with IP/MAC addresses; list listening ports with process info
@@ -89,6 +91,7 @@ editor = "notepad++.exe"  # Optional: specify your preferred editor
 
 You can also add entries in-app:
 - Bookmarks: `n` then `name|path|type`
+- Configs: `n` then `name|path|category|description|editor`
 - SSH: `n` then `name|user@host:port`
 - Scripts: `n` then `name|command|description`
 
@@ -99,6 +102,17 @@ You can also add entries in-app:
 - Pin frequently used entries to keep them persistent
 - Supports text, command, and URL types
 - Windows: uses `clip` command for clipboard operations
+
+**Configs Module**
+- Track and manage configuration files with categories and descriptions
+- Open configs in editor (respects $EDITOR or custom per-config editor)
+- Create timestamped backups of config files
+- Preview config contents (first 50 lines)
+- Copy config contents to clipboard
+- Open config directory in file manager
+- Search configs by name, path, category, or description
+- Auto-detects common configs on first run (bash, zsh, git, ssh, vim)
+- Shows file size and last modified time
 
 **Docker Module**
 - Lists containers with status, image, and port information
