@@ -266,9 +266,9 @@ async fn run_app<B: ratatui::backend::Backend>(
                     }
                     KeyCode::Char('o') => {
                         if app.current_section == MenuSection::Configs
-                            && let Err(e) = app.open_config_in_file_manager()
+                            && let Err(e) = app.open_config_in_editor()
                         {
-                            app.report_error("Open folder failed", e);
+                            app.report_error("Open in editor failed", e);
                         }
                     }
                     KeyCode::Tab => app.next_section(),

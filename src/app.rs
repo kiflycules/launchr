@@ -1440,16 +1440,17 @@ impl App {
         Ok(())
     }
 
-    pub fn open_config_in_file_manager(&mut self) -> Result<()> {
+    pub fn open_config_in_editor(&mut self) -> Result<()> {
         if self.current_section == MenuSection::Configs
             && let Err(e) = self
                 .configs_module
-                .open_in_file_manager(self.selected_index)
+                .open_in_editor(self.selected_index)
         {
-            self.report_error("Open folder failed", e);
+            self.report_error("Open in editor failed", e);
         }
         Ok(())
     }
+
 
     pub fn search_configs(&mut self) {
         if self.current_section == MenuSection::Configs {

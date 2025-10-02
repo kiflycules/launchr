@@ -214,9 +214,14 @@ impl ConfigsModule {
             .and_then(|s| s.to_str())
             .unwrap_or("");
         let timestamp = chrono::Local::now().format("%Y%m%d_%H%M%S");
-        let backup_extension = format!("{}.backup.{}", extension, timestamp);
-
-        let backup_path = config.path.with_extension(backup_extension);
+        
+        let backup_path = if extension.is_empty() {
+            // No extension, just add backup suffix
+            config.path.with_extension(format!("backup.{}", timestamp))
+        } else {
+            // Has extension, replace it with backup version
+            config.path.with_extension(format!("{}.backup.{}", extension, timestamp))
+        };
 
         fs::copy(&config.path, &backup_path)?;
 
@@ -324,31 +329,38 @@ impl ConfigsModule {
         Ok(content)
     }
 
-    pub fn open_in_file_manager(&self, index: usize) -> Result<()> {
+    pub fn open_in_editor(&self, index: usize) -> Result<()> {
         if index >= self.configs.len() {
             anyhow::bail!("Invalid config index");
         }
 
         let config = &self.configs[index];
-        let _dir = config.path.parent().unwrap_or(Path::new("."));
-
-        #[cfg(target_os = "macos")]
-        {
-            Command::new("open").arg(_dir).spawn()?;
+        
+        if !config.exists {
+            anyhow::bail!("Config file does not exist: {:?}", config.path);
         }
 
-        #[cfg(target_os = "linux")]
-        {
-            Command::new("xdg-open").arg(_dir).spawn()?;
-        }
+        let file_path = config.path.to_string_lossy().to_string();
+        
+        // Use the config's specific editor if set, otherwise fall back to environment or defaults
+        let editor = if let Some(ref custom_editor) = config.editor {
+            custom_editor.clone()
+        } else if let Ok(env_editor) = std::env::var("EDITOR") {
+            env_editor
+        } else {
+            // Default editors by platform
+            #[cfg(target_os = "windows")]
+            { "notepad.exe".to_string() }
+            #[cfg(not(target_os = "windows"))]
+            { "nano".to_string() }
+        };
 
-        #[cfg(target_os = "windows")]
-        {
-            Command::new("explorer").arg(_dir).spawn()?;
-        }
+        // Try to open the file in the editor
+        let _ = Command::new(&editor).arg(&file_path).spawn();
 
         Ok(())
     }
+
 
     fn get_default_configs() -> Vec<ConfigEntry> {
         let home = dirs::home_dir().unwrap_or_else(|| PathBuf::from("."));

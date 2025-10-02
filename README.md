@@ -16,7 +16,7 @@ Tested on Linux/macOS/Windows. On Windows, run in a true terminal (Windows Termi
 - Help: `?` toggle help overlay
 - Apps: `Enter` launch, `s` stop process (also from Dashboard)
 - Clipboard: `Enter` copy to clipboard, `p` pin/unpin entry
-- Configs: `Enter` open in editor, `b` backup, `v` view (scrollable with syntax highlighting), `c` copy, `o` open folder, `f` search
+- Configs: `Enter` open in editor, `b` backup, `v` view (scrollable with syntax highlighting), `c` copy, `o` open in editor, `f` search
 - Docker: `Enter` exec into container, `v` switch view (containers/images), `a` toggle show all
 - Network: `v` switch view (connections/interfaces/ports), `f` filter connections by state
 - SSH: `x` disconnect latest session (terminates the ssh process)
