@@ -117,9 +117,10 @@ impl GitModule {
                     if let Some(path) = next_path {
                         // Skip hidden directories (except .git which we check above)
                         if let Some(name) = path.file_name()
-                            && !name.to_string_lossy().starts_with('.') {
-                                let _ = self.scan_directory(&path, max_depth - 1);
-                            }
+                            && !name.to_string_lossy().starts_with('.')
+                        {
+                            let _ = self.scan_directory(&path, max_depth - 1);
+                        }
                     }
                 }
             }
@@ -251,14 +252,15 @@ impl GitModule {
         // Then update the repos
         for (i, updated) in updates.into_iter().enumerate() {
             if let Some(updated) = updated
-                && let Some(repo) = self.repos.get_mut(i) {
-                    repo.branch = updated.branch;
-                    repo.status = updated.status;
-                    repo.uncommitted_changes = updated.uncommitted_changes;
-                    repo.ahead = updated.ahead;
-                    repo.behind = updated.behind;
-                    repo.last_commit = updated.last_commit;
-                }
+                && let Some(repo) = self.repos.get_mut(i)
+            {
+                repo.branch = updated.branch;
+                repo.status = updated.status;
+                repo.uncommitted_changes = updated.uncommitted_changes;
+                repo.ahead = updated.ahead;
+                repo.behind = updated.behind;
+                repo.last_commit = updated.last_commit;
+            }
         }
         Ok(())
     }
@@ -399,13 +401,14 @@ impl GitModule {
             .ok();
 
         if let Some(output) = output
-            && output.status.success() {
-                return String::from_utf8_lossy(&output.stdout)
-                    .lines()
-                    .map(|l| l.trim().trim_start_matches("* ").to_string())
-                    .filter(|l| !l.is_empty())
-                    .collect();
-            }
+            && output.status.success()
+        {
+            return String::from_utf8_lossy(&output.stdout)
+                .lines()
+                .map(|l| l.trim().trim_start_matches("* ").to_string())
+                .filter(|l| !l.is_empty())
+                .collect();
+        }
 
         vec![]
     }

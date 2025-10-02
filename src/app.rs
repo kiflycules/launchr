@@ -156,7 +156,7 @@ impl App {
         let max = self.get_current_list_len();
         if max > 0 {
             self.selected_index = (self.selected_index + 1) % max;
-            
+
             // Clear preview when navigating to different config
             if self.current_section == MenuSection::Configs {
                 self.configs_module.exit_preview_mode();
@@ -172,7 +172,7 @@ impl App {
             } else {
                 self.selected_index - 1
             };
-            
+
             // Clear preview when navigating to different config
             if self.current_section == MenuSection::Configs {
                 self.configs_module.exit_preview_mode();
@@ -424,47 +424,52 @@ impl App {
 
     pub fn start_service(&mut self) {
         if self.current_section == MenuSection::Services
-            && let Ok(msg) = self.services_module.start_service(self.selected_index) {
-                self.status_message = format!("Started service: {}", msg);
-                self.notifications_module
-                    .push("Service", "Service started", "info");
-            }
+            && let Ok(msg) = self.services_module.start_service(self.selected_index)
+        {
+            self.status_message = format!("Started service: {}", msg);
+            self.notifications_module
+                .push("Service", "Service started", "info");
+        }
     }
 
     pub fn stop_service(&mut self) {
         if self.current_section == MenuSection::Services
-            && let Ok(msg) = self.services_module.stop_service(self.selected_index) {
-                self.status_message = format!("Stopped service: {}", msg);
-                self.notifications_module
-                    .push("Service", "Service stopped", "warning");
-            }
+            && let Ok(msg) = self.services_module.stop_service(self.selected_index)
+        {
+            self.status_message = format!("Stopped service: {}", msg);
+            self.notifications_module
+                .push("Service", "Service stopped", "warning");
+        }
     }
 
     pub fn restart_service(&mut self) {
         if self.current_section == MenuSection::Services
-            && let Ok(msg) = self.services_module.restart_service(self.selected_index) {
-                self.status_message = format!("Restarted service: {}", msg);
-                self.notifications_module
-                    .push("Service", "Service restarted", "info");
-            }
+            && let Ok(msg) = self.services_module.restart_service(self.selected_index)
+        {
+            self.status_message = format!("Restarted service: {}", msg);
+            self.notifications_module
+                .push("Service", "Service restarted", "info");
+        }
     }
 
     pub fn enable_service(&mut self) {
         if self.current_section == MenuSection::Services
-            && let Ok(msg) = self.services_module.enable_service(self.selected_index) {
-                self.status_message = format!("Enabled service: {}", msg);
-                self.notifications_module
-                    .push("Service", "Service enabled", "info");
-            }
+            && let Ok(msg) = self.services_module.enable_service(self.selected_index)
+        {
+            self.status_message = format!("Enabled service: {}", msg);
+            self.notifications_module
+                .push("Service", "Service enabled", "info");
+        }
     }
 
     pub fn disable_service(&mut self) {
         if self.current_section == MenuSection::Services
-            && let Ok(msg) = self.services_module.disable_service(self.selected_index) {
-                self.status_message = format!("Disabled service: {}", msg);
-                self.notifications_module
-                    .push("Service", "Service disabled", "warning");
-            }
+            && let Ok(msg) = self.services_module.disable_service(self.selected_index)
+        {
+            self.status_message = format!("Disabled service: {}", msg);
+            self.notifications_module
+                .push("Service", "Service disabled", "warning");
+        }
     }
 
     pub fn view_service_logs(&mut self) {
@@ -472,10 +477,10 @@ impl App {
             && let Ok(logs) = self
                 .services_module
                 .get_service_logs(self.selected_index, 50)
-            {
-                self.status_message =
-                    format!("Logs: {}...", logs.chars().take(100).collect::<String>());
-            }
+        {
+            self.status_message =
+                format!("Logs: {}...", logs.chars().take(100).collect::<String>());
+        }
     }
 
     pub fn search_services(&mut self) {
@@ -842,40 +847,40 @@ impl App {
 
     pub async fn schedule_selected_script(&mut self) -> Result<()> {
         if self.current_section == MenuSection::Scripts
-            && self.selected_index < self.scripts_module.scripts.len() {
-                self.scripts_module
-                    .schedule_script(self.selected_index, 60)
-                    .await?;
-                let name = self.scripts_module.scripts[self.selected_index]
-                    .name
-                    .clone();
-                self.status_message = format!("Scheduled: {} (every 60s)", name);
-                self.notifications_module
-                    .push("Script Scheduled", &name, "info");
-            }
+            && self.selected_index < self.scripts_module.scripts.len()
+        {
+            self.scripts_module
+                .schedule_script(self.selected_index, 60)
+                .await?;
+            let name = self.scripts_module.scripts[self.selected_index]
+                .name
+                .clone();
+            self.status_message = format!("Scheduled: {} (every 60s)", name);
+            self.notifications_module
+                .push("Script Scheduled", &name, "info");
+        }
         Ok(())
     }
 
     pub fn disconnect_latest_session(&mut self) {
-        if self.current_section == MenuSection::Ssh
-            && !self.ssh_module.active_sessions.is_empty() {
-                let idx = self.ssh_module.active_sessions.len() - 1;
-                let name = self.ssh_module.active_sessions[idx].name.clone();
-                match self.ssh_module.disconnect(idx) {
-                    Ok(()) => {
-                        self.status_message = format!("Disconnected: {}", name);
-                        self.notifications_module
-                            .push("SSH Disconnected", &name, "warning");
-                        // Immediately refresh sessions so UI reflects removal
-                        self.ssh_module.refresh_session_status();
-                    }
-                    Err(e) => {
-                        self.status_message = format!("Failed to disconnect {}: {}", name, e);
-                        self.notifications_module
-                            .push("SSH Disconnect Failed", &name, "error");
-                    }
+        if self.current_section == MenuSection::Ssh && !self.ssh_module.active_sessions.is_empty() {
+            let idx = self.ssh_module.active_sessions.len() - 1;
+            let name = self.ssh_module.active_sessions[idx].name.clone();
+            match self.ssh_module.disconnect(idx) {
+                Ok(()) => {
+                    self.status_message = format!("Disconnected: {}", name);
+                    self.notifications_module
+                        .push("SSH Disconnected", &name, "warning");
+                    // Immediately refresh sessions so UI reflects removal
+                    self.ssh_module.refresh_session_status();
+                }
+                Err(e) => {
+                    self.status_message = format!("Failed to disconnect {}: {}", name, e);
+                    self.notifications_module
+                        .push("SSH Disconnect Failed", &name, "error");
                 }
             }
+        }
     }
 
     pub fn report_error(&mut self, context: &str, err: anyhow::Error) {
@@ -1390,27 +1395,35 @@ impl App {
     // Configs helper methods
     pub fn backup_selected_config(&mut self) -> Result<()> {
         if self.current_section == MenuSection::Configs
-            && let Ok(backup_path) = self.configs_module.backup_config(self.selected_index) {
-                self.status_message = format!("Backed up to: {}", backup_path);
-                self.notifications_module
-                    .push("Config", "Backup created", "info");
-            }
+            && let Ok(backup_path) = self.configs_module.backup_config(self.selected_index)
+        {
+            self.status_message = format!("Backed up to: {}", backup_path);
+            self.notifications_module
+                .push("Config", "Backup created", "info");
+        }
         Ok(())
     }
 
     pub fn view_selected_config(&mut self) -> Result<()> {
         if self.current_section == MenuSection::Configs {
-            let config = &self.configs_module.configs[self.selected_index];
-            if !config.exists {
+            let config_path = self.configs_module.configs[self.selected_index]
+                .path
+                .clone();
+            let config_exists = self.configs_module.configs[self.selected_index].exists;
+
+            if !config_exists {
                 self.status_message = "File not found - cannot preview".to_string();
                 return Ok(());
             }
-            
+
             if let Ok(content) = self.configs_module.view_config(self.selected_index) {
                 let total = content.lines().count();
                 self.status_message = format!("Preview: {} lines", total);
                 // Store the preview content for the info panel
-                self.configs_module.set_preview_content(content);
+                self.configs_module.set_preview_content(content.clone());
+                // Generate syntax highlighting
+                self.configs_module
+                    .highlight_content(&content, &config_path);
             }
         }
         Ok(())
@@ -1418,11 +1431,12 @@ impl App {
 
     pub fn config_copy_to_clipboard(&mut self) -> Result<()> {
         if self.current_section == MenuSection::Configs
-            && let Ok(content) = self.configs_module.copy_to_clipboard(self.selected_index) {
-                self.status_message = format!("Copied {} bytes to clipboard", content.len());
-                self.notifications_module
-                    .push("Config", "Copied to clipboard", "info");
-            }
+            && let Ok(content) = self.configs_module.copy_to_clipboard(self.selected_index)
+        {
+            self.status_message = format!("Copied {} bytes to clipboard", content.len());
+            self.notifications_module
+                .push("Config", "Copied to clipboard", "info");
+        }
         Ok(())
     }
 
@@ -1431,9 +1445,9 @@ impl App {
             && let Err(e) = self
                 .configs_module
                 .open_in_file_manager(self.selected_index)
-            {
-                self.report_error("Open folder failed", e);
-            }
+        {
+            self.report_error("Open folder failed", e);
+        }
         Ok(())
     }
 

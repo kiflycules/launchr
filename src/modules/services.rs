@@ -225,18 +225,22 @@ impl ServicesModule {
             for line in status.lines() {
                 if let Some(value) = line.strip_prefix("MainPID=") {
                     if let Ok(p) = value.parse::<u32>()
-                        && p > 0 {
-                            pid = Some(p);
-                        }
+                        && p > 0
+                    {
+                        pid = Some(p);
+                    }
                 } else if let Some(value) = line.strip_prefix("MemoryCurrent=") {
                     if let Ok(bytes) = value.parse::<u64>()
-                        && bytes > 0 {
-                            memory = Some(Self::format_memory(bytes));
-                        }
-                } else if let Some(value) = line.strip_prefix("ActiveEnterTimestamp=")
-                    && !value.is_empty() && value != "0" {
-                        uptime = Some(value.to_string());
+                        && bytes > 0
+                    {
+                        memory = Some(Self::format_memory(bytes));
                     }
+                } else if let Some(value) = line.strip_prefix("ActiveEnterTimestamp=")
+                    && !value.is_empty()
+                    && value != "0"
+                {
+                    uptime = Some(value.to_string());
+                }
             }
         }
 

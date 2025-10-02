@@ -76,18 +76,19 @@ impl NetworkModule {
             let output = Command::new("ss").args(["-tupan"]).output();
 
             if let Ok(output) = output
-                && output.status.success() {
-                    let stdout = String::from_utf8_lossy(&output.stdout);
-                    for line in stdout.lines().skip(1) {
-                        if let Some(conn) = self.parse_ss_line(line)
-                            && (self.filter_state.is_none()
-                                || self.filter_state.as_ref() == Some(&conn.state))
-                            {
-                                self.connections.push(conn);
-                            }
+                && output.status.success()
+            {
+                let stdout = String::from_utf8_lossy(&output.stdout);
+                for line in stdout.lines().skip(1) {
+                    if let Some(conn) = self.parse_ss_line(line)
+                        && (self.filter_state.is_none()
+                            || self.filter_state.as_ref() == Some(&conn.state))
+                    {
+                        self.connections.push(conn);
                     }
-                    return Ok(());
                 }
+                return Ok(());
+            }
             // Fallback to netstat
             self.use_netstat()?;
         }
@@ -128,9 +129,9 @@ impl NetworkModule {
                 if let Some(conn) = self.parse_netstat_line(line)
                     && (self.filter_state.is_none()
                         || self.filter_state.as_ref() == Some(&conn.state))
-                    {
-                        self.connections.push(conn);
-                    }
+                {
+                    self.connections.push(conn);
+                }
             }
         }
         Ok(())
@@ -179,11 +180,11 @@ impl NetworkModule {
 
                 // Extract process name
                 if let Some(name_start) = users_field.find("((\"")
-                    && let Some(name_end) = users_field[name_start + 3..].find('\"') {
-                        let name =
-                            users_field[name_start + 3..name_start + 3 + name_end].to_string();
-                        return (pid, name);
-                    }
+                    && let Some(name_end) = users_field[name_start + 3..].find('\"')
+                {
+                    let name = users_field[name_start + 3..name_start + 3 + name_end].to_string();
+                    return (pid, name);
+                }
                 return (pid, String::from("?"));
             }
         }

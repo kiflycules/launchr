@@ -105,9 +105,9 @@ impl SSHModule {
                 && let Ok(child) = Command::new("ssh")
                     .args(["-p", port_s.as_str(), target.as_str()])
                     .spawn()
-                {
-                    session_pid = child.id().into();
-                }
+            {
+                session_pid = child.id().into();
+            }
         }
 
         #[cfg(windows)]
@@ -239,24 +239,23 @@ impl SSHModule {
         }
 
         // Fallback: if we had a stored PID, try it as well
-        if !killed_any
-            && let Some(pid) = session.pid {
-                #[cfg(unix)]
-                {
-                    use std::process::Command as StdCommand;
-                    let _ = StdCommand::new("kill")
-                        .arg("-TERM")
-                        .arg(pid.to_string())
-                        .output();
-                }
-                #[cfg(windows)]
-                {
-                    use std::process::Command as StdCommand;
-                    let _ = StdCommand::new("taskkill")
-                        .args(&["/PID", &pid.to_string(), "/F"])
-                        .output();
-                }
+        if !killed_any && let Some(pid) = session.pid {
+            #[cfg(unix)]
+            {
+                use std::process::Command as StdCommand;
+                let _ = StdCommand::new("kill")
+                    .arg("-TERM")
+                    .arg(pid.to_string())
+                    .output();
             }
+            #[cfg(windows)]
+            {
+                use std::process::Command as StdCommand;
+                let _ = StdCommand::new("taskkill")
+                    .args(&["/PID", &pid.to_string(), "/F"])
+                    .output();
+            }
+        }
 
         // Remove from active list immediately; periodic refresh will also rebuild
         self.active_sessions.remove(index);
@@ -308,9 +307,10 @@ impl SSHModule {
                 // If a port is specified, check '-p <port>' in tokens; otherwise accept
                 let mut port_ok = true;
                 if let Some(p_idx) = tokens.iter().position(|t| t == "-p")
-                    && let Some(p_val) = tokens.get(p_idx + 1) {
-                        port_ok = *p_val == h.port.to_string();
-                    }
+                    && let Some(p_val) = tokens.get(p_idx + 1)
+                {
+                    port_ok = *p_val == h.port.to_string();
+                }
 
                 if port_ok {
                     detected.push((h.name.clone(), h.host.clone()));

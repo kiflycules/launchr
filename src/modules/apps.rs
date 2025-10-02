@@ -38,7 +38,8 @@ impl AppsModule {
                     for entry in entries.flatten() {
                         if let Ok(file_type) = entry.file_type()
                             && (file_type.is_file() || file_type.is_symlink())
-                            && let Some(name) = entry.file_name().to_str() {
+                            && let Some(name) = entry.file_name().to_str()
+                        {
                             // On Windows, filter to common executable extensions to avoid DLLs and assets
                             #[cfg(windows)]
                             {

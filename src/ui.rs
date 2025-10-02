@@ -141,7 +141,7 @@ fn draw_menu(f: &mut Frame, app: &App, area: Rect) {
     // Calculate scroll position to keep selected item visible
     let window_height = (area.height.saturating_sub(2)) as usize; // Account for borders
     let menu_len = menu_items.len();
-    
+
     let start = if menu_len <= window_height {
         0
     } else {
@@ -150,7 +150,7 @@ fn draw_menu(f: &mut Frame, app: &App, area: Rect) {
         let max_start = menu_len.saturating_sub(window_height);
         base.min(max_start)
     };
-    
+
     let end = (start + window_height).min(menu_len);
     let visible_items = items[start..end].to_vec();
 
@@ -161,7 +161,11 @@ fn draw_menu(f: &mut Frame, app: &App, area: Rect) {
                 .borders(Borders::ALL)
                 .border_style(Style::default().fg(Color::White)),
         )
-        .highlight_style(Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD))
+        .highlight_style(
+            Style::default()
+                .fg(Color::Yellow)
+                .add_modifier(Modifier::BOLD),
+        )
         .highlight_symbol("> ");
     f.render_widget(list, area);
 }
@@ -1634,7 +1638,7 @@ fn draw_configs(f: &mut Frame, app: &App, area: Rect) {
         let window_height = (chunks[0].height.saturating_sub(2)) as usize;
         let configs_len = app.configs_module.configs.len();
         let selected_index = app.selected_index.min(configs_len.saturating_sub(1));
-        
+
         let start = if configs_len == 0 {
             0
         } else {
@@ -1643,10 +1647,10 @@ fn draw_configs(f: &mut Frame, app: &App, area: Rect) {
             let max_start = configs_len.saturating_sub(window_height);
             base.min(max_start)
         };
-        
+
         let end = (start + window_height).min(configs_len);
         let visible_items = items[start..end].to_vec();
-        
+
         let list = List::new(visible_items)
             .block(Block::default().title("Configs (n: new, d: delete, Enter: open, b: backup, v: view, c: copy, o: open folder, f: search)").borders(Borders::ALL))
             .highlight_style(Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD))
@@ -1692,31 +1696,73 @@ fn draw_configs(f: &mut Frame, app: &App, area: Rect) {
     } else if let Some(ref preview) = app.configs_module.preview_content {
         let lines: Vec<&str> = preview.lines().collect();
         let scroll_pos = app.configs_module.preview_scroll;
-        
+
         // Ensure scroll position is valid
         let max_scroll = lines.len().saturating_sub(1);
         let valid_scroll_pos = scroll_pos.min(max_scroll);
-        
+
         // Show lines starting from scroll position, limited by available height
         let available_height = chunks[1].height.saturating_sub(2); // Account for borders
         let end_line = (valid_scroll_pos + available_height as usize).min(lines.len());
-        let visible_lines = if valid_scroll_pos < lines.len() && !lines.is_empty() {
-            lines[valid_scroll_pos..end_line].join("\n")
-        } else {
-            String::new()
-        };
-        
+
         let scroll_info = if lines.len() > available_height as usize {
-            format!("Preview ({} of {} lines, ↑↓ to scroll, Esc to exit, v to refresh)", 
-                   valid_scroll_pos + 1, lines.len())
+            format!(
+                "Preview ({} of {} lines, ↑↓ to scroll, Esc to exit, v to refresh)",
+                valid_scroll_pos + 1,
+                lines.len()
+            )
         } else {
             "Preview (Esc to exit, v to refresh)".to_string()
         };
-        
-        let preview_para = Paragraph::new(visible_lines)
-            .block(Block::default().title(scroll_info).borders(Borders::ALL))
-            .wrap(Wrap { trim: false });
-        f.render_widget(preview_para, chunks[1]);
+
+        // Use highlighted content if available, otherwise fall back to plain text
+        if let Some(ref highlighted) = app.configs_module.highlighted_content {
+            // Convert highlighted content to lines and apply scrolling
+            let highlighted_lines: Vec<Vec<(Style, String)>> = highlighted
+                .split(|(_, text)| text == "\n")
+                .map(|line| line.to_vec())
+                .collect();
+
+            // Calculate end line for highlighted content
+            let highlighted_end_line =
+                (valid_scroll_pos + available_height as usize).min(highlighted_lines.len());
+
+            let visible_highlighted_lines =
+                if valid_scroll_pos < highlighted_lines.len() && !highlighted_lines.is_empty() {
+                    highlighted_lines[valid_scroll_pos..highlighted_end_line].to_vec()
+                } else {
+                    Vec::new()
+                };
+
+            // Convert highlighted lines to spans for display
+            let spans: Vec<Line> = visible_highlighted_lines
+                .into_iter()
+                .map(|line_spans| {
+                    let spans: Vec<Span> = line_spans
+                        .into_iter()
+                        .map(|(style, text)| Span::styled(text, style))
+                        .collect();
+                    Line::from(spans)
+                })
+                .collect();
+
+            let preview_para = Paragraph::new(spans)
+                .block(Block::default().title(scroll_info).borders(Borders::ALL))
+                .wrap(Wrap { trim: false });
+            f.render_widget(preview_para, chunks[1]);
+        } else {
+            // Fallback to plain text
+            let visible_lines = if valid_scroll_pos < lines.len() && !lines.is_empty() {
+                lines[valid_scroll_pos..end_line].join("\n")
+            } else {
+                String::new()
+            };
+
+            let preview_para = Paragraph::new(visible_lines)
+                .block(Block::default().title(scroll_info).borders(Borders::ALL))
+                .wrap(Wrap { trim: false });
+            f.render_widget(preview_para, chunks[1]);
+        }
     } else {
         let help = Paragraph::new(
             "Press 't' to toggle config details\nPress 'v' to preview config content",

@@ -1,4 +1,5 @@
 use anyhow::{Context, Result};
+use ratatui::style::{Color, Style};
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -25,6 +26,7 @@ pub struct ConfigsModule {
     pub preview_content: Option<String>,
     pub preview_scroll: usize,
     pub preview_mode: bool,
+    pub highlighted_content: Option<Vec<(Style, String)>>,
 }
 
 impl ConfigsModule {
@@ -43,6 +45,7 @@ impl ConfigsModule {
             preview_content: None,
             preview_scroll: 0,
             preview_mode: false,
+            highlighted_content: None,
         };
 
         module.load()?;
@@ -87,9 +90,10 @@ impl ConfigsModule {
                     config.file_size = Some(metadata.len());
 
                     if let Ok(modified) = metadata.modified()
-                        && let Ok(duration) = modified.elapsed() {
-                            config.last_modified = Some(Self::format_time_ago(duration));
-                        }
+                        && let Ok(duration) = modified.elapsed()
+                    {
+                        config.last_modified = Some(Self::format_time_ago(duration));
+                    }
                 }
             } else {
                 config.file_size = None;
@@ -460,4 +464,665 @@ impl ConfigsModule {
             }
         }
     }
+
+    pub fn highlight_content(&mut self, content: &str, file_path: &Path) {
+        let file_ext = file_path
+            .extension()
+            .and_then(|ext| ext.to_str())
+            .unwrap_or("");
+
+        let file_name = file_path
+            .file_name()
+            .and_then(|name| name.to_str())
+            .unwrap_or("");
+
+        let highlighted = match self.detect_file_type(file_ext, file_name) {
+            FileType::Json => self.highlight_json(content),
+            FileType::Yaml => self.highlight_yaml(content),
+            FileType::Toml => self.highlight_toml(content),
+            FileType::Ini => self.highlight_ini(content),
+            FileType::Conf => self.highlight_conf(content),
+            FileType::Env => self.highlight_env(content),
+            FileType::Ssh => self.highlight_ssh(content),
+            FileType::Git => self.highlight_git(content),
+            FileType::Docker => self.highlight_docker(content),
+            FileType::Nginx => self.highlight_nginx(content),
+            FileType::Apache => self.highlight_apache(content),
+            FileType::Systemd => self.highlight_systemd(content),
+            FileType::Bash => self.highlight_bash(content),
+            FileType::Unknown => self.highlight_generic(content),
+        };
+
+        self.highlighted_content = Some(highlighted);
+    }
+
+    fn detect_file_type(&self, ext: &str, name: &str) -> FileType {
+        match (ext.to_lowercase().as_str(), name.to_lowercase().as_str()) {
+            ("json", _) => FileType::Json,
+            ("yaml", _) | ("yml", _) => FileType::Yaml,
+            ("toml", _) => FileType::Toml,
+            ("ini", _) => FileType::Ini,
+            ("conf", _) => FileType::Conf,
+            ("env", _) => FileType::Env,
+            ("sh", _) | ("bash", _) | ("zsh", _) => FileType::Bash,
+            (_, name) if name.contains(".env") => FileType::Env,
+            (_, name)
+                if name.contains("bashrc")
+                    || name.contains("bash_profile")
+                    || name.contains("zshrc")
+                    || name.contains("profile")
+                    || name.contains("aliases")
+                    || name.contains("functions") =>
+            {
+                FileType::Bash
+            }
+            (_, name) if name.contains("ssh") || name.contains("config") => FileType::Ssh,
+            (_, name) if name.contains("git") => FileType::Git,
+            (_, name) if name.contains("docker") => FileType::Docker,
+            (_, name) if name.contains("nginx") => FileType::Nginx,
+            (_, name) if name.contains("apache") => FileType::Apache,
+            (_, name) if name.contains("systemd") || name.contains("service") => FileType::Systemd,
+            _ => FileType::Unknown,
+        }
+    }
+
+    fn highlight_json(&self, content: &str) -> Vec<(Style, String)> {
+        let mut result = Vec::new();
+        let mut chars = content.chars().peekable();
+        let mut current_token = String::new();
+        let mut in_string = false;
+        let mut escape_next = false;
+
+        while let Some(ch) = chars.next() {
+            if escape_next {
+                current_token.push(ch);
+                escape_next = false;
+                continue;
+            }
+
+            match ch {
+                '"' if !in_string => {
+                    if !current_token.is_empty() {
+                        result.push((Style::default(), current_token.clone()));
+                        current_token.clear();
+                    }
+                    in_string = true;
+                    current_token.push(ch);
+                }
+                '"' if in_string => {
+                    current_token.push(ch);
+                    result.push((Style::default().fg(Color::Green), current_token.clone()));
+                    current_token.clear();
+                    in_string = false;
+                }
+                '\\' if in_string => {
+                    current_token.push(ch);
+                    escape_next = true;
+                }
+                ':' if !in_string => {
+                    if !current_token.is_empty() {
+                        result.push((Style::default(), current_token.clone()));
+                        current_token.clear();
+                    }
+                    result.push((Style::default().fg(Color::Cyan), ch.to_string()));
+                }
+                '{' | '}' | '[' | ']' if !in_string => {
+                    if !current_token.is_empty() {
+                        result.push((Style::default(), current_token.clone()));
+                        current_token.clear();
+                    }
+                    result.push((Style::default().fg(Color::Yellow), ch.to_string()));
+                }
+                ',' if !in_string => {
+                    if !current_token.is_empty() {
+                        result.push((Style::default(), current_token.clone()));
+                        current_token.clear();
+                    }
+                    result.push((Style::default().fg(Color::Magenta), ch.to_string()));
+                }
+                _ => {
+                    current_token.push(ch);
+                }
+            }
+        }
+
+        if !current_token.is_empty() {
+            result.push((Style::default(), current_token));
+        }
+
+        result
+    }
+
+    fn highlight_yaml(&self, content: &str) -> Vec<(Style, String)> {
+        let mut result = Vec::new();
+
+        for line in content.lines() {
+            let mut chars = line.chars().peekable();
+            let mut current_token = String::new();
+            let mut in_string = false;
+            let mut escape_next = false;
+            let mut indent_level = 0;
+
+            // Count indentation
+            while let Some(&ch) = chars.peek() {
+                if ch == ' ' || ch == '\t' {
+                    indent_level += 1;
+                    chars.next();
+                } else {
+                    break;
+                }
+            }
+
+            // Add indentation with dim style
+            if indent_level > 0 {
+                result.push((
+                    Style::default().fg(Color::DarkGray),
+                    " ".repeat(indent_level),
+                ));
+            }
+
+            while let Some(ch) = chars.next() {
+                if escape_next {
+                    current_token.push(ch);
+                    escape_next = false;
+                    continue;
+                }
+
+                match ch {
+                    '"' | '\'' if !in_string => {
+                        if !current_token.is_empty() {
+                            result.push((Style::default(), current_token.clone()));
+                            current_token.clear();
+                        }
+                        in_string = true;
+                        current_token.push(ch);
+                    }
+                    '"' | '\'' if in_string => {
+                        current_token.push(ch);
+                        result.push((Style::default().fg(Color::Green), current_token.clone()));
+                        current_token.clear();
+                        in_string = false;
+                    }
+                    '\\' if in_string => {
+                        current_token.push(ch);
+                        escape_next = true;
+                    }
+                    ':' if !in_string && chars.peek().map_or(true, |&c| c.is_whitespace()) => {
+                        if !current_token.is_empty() {
+                            result.push((Style::default().fg(Color::Cyan), current_token.clone()));
+                            current_token.clear();
+                        }
+                        result.push((Style::default().fg(Color::Yellow), ch.to_string()));
+                    }
+                    '#' if !in_string => {
+                        if !current_token.is_empty() {
+                            result.push((Style::default(), current_token.clone()));
+                            current_token.clear();
+                        }
+                        let comment = ch.to_string() + &chars.collect::<String>();
+                        result.push((Style::default().fg(Color::DarkGray), comment));
+                        break;
+                    }
+                    _ => {
+                        current_token.push(ch);
+                    }
+                }
+            }
+
+            if !current_token.is_empty() {
+                result.push((Style::default(), current_token));
+            }
+            result.push((Style::default(), "\n".to_string()));
+        }
+
+        result
+    }
+
+    fn highlight_toml(&self, content: &str) -> Vec<(Style, String)> {
+        let mut result = Vec::new();
+
+        for line in content.lines() {
+            let mut chars = line.chars().peekable();
+            let mut current_token = String::new();
+            let mut in_string = false;
+            let mut escape_next = false;
+
+            while let Some(ch) = chars.next() {
+                if escape_next {
+                    current_token.push(ch);
+                    escape_next = false;
+                    continue;
+                }
+
+                match ch {
+                    '"' | '\'' if !in_string => {
+                        if !current_token.is_empty() {
+                            result.push((Style::default(), current_token.clone()));
+                            current_token.clear();
+                        }
+                        in_string = true;
+                        current_token.push(ch);
+                    }
+                    '"' | '\'' if in_string => {
+                        current_token.push(ch);
+                        result.push((Style::default().fg(Color::Green), current_token.clone()));
+                        current_token.clear();
+                        in_string = false;
+                    }
+                    '\\' if in_string => {
+                        current_token.push(ch);
+                        escape_next = true;
+                    }
+                    '[' if !in_string => {
+                        if !current_token.is_empty() {
+                            result.push((Style::default(), current_token.clone()));
+                            current_token.clear();
+                        }
+                        result.push((Style::default().fg(Color::Yellow), ch.to_string()));
+                    }
+                    ']' if !in_string => {
+                        if !current_token.is_empty() {
+                            result.push((Style::default(), current_token.clone()));
+                            current_token.clear();
+                        }
+                        result.push((Style::default().fg(Color::Yellow), ch.to_string()));
+                    }
+                    '=' if !in_string => {
+                        if !current_token.is_empty() {
+                            result.push((Style::default().fg(Color::Cyan), current_token.clone()));
+                            current_token.clear();
+                        }
+                        result.push((Style::default().fg(Color::Magenta), ch.to_string()));
+                    }
+                    '#' if !in_string => {
+                        if !current_token.is_empty() {
+                            result.push((Style::default(), current_token.clone()));
+                            current_token.clear();
+                        }
+                        let comment = ch.to_string() + &chars.collect::<String>();
+                        result.push((Style::default().fg(Color::DarkGray), comment));
+                        break;
+                    }
+                    _ => {
+                        current_token.push(ch);
+                    }
+                }
+            }
+
+            if !current_token.is_empty() {
+                result.push((Style::default(), current_token));
+            }
+            result.push((Style::default(), "\n".to_string()));
+        }
+
+        result
+    }
+
+    fn highlight_ini(&self, content: &str) -> Vec<(Style, String)> {
+        let mut result = Vec::new();
+
+        for line in content.lines() {
+            let trimmed = line.trim();
+
+            if trimmed.starts_with('[') && trimmed.ends_with(']') {
+                result.push((Style::default().fg(Color::Yellow), line.to_string()));
+            } else if trimmed.starts_with('#') || trimmed.starts_with(';') {
+                result.push((Style::default().fg(Color::DarkGray), line.to_string()));
+            } else if trimmed.contains('=') {
+                let parts: Vec<&str> = trimmed.splitn(2, '=').collect();
+                if parts.len() == 2 {
+                    result.push((Style::default().fg(Color::Cyan), parts[0].to_string()));
+                    result.push((Style::default().fg(Color::Magenta), "=".to_string()));
+                    result.push((Style::default().fg(Color::Green), parts[1].to_string()));
+                } else {
+                    result.push((Style::default(), line.to_string()));
+                }
+            } else {
+                result.push((Style::default(), line.to_string()));
+            }
+            result.push((Style::default(), "\n".to_string()));
+        }
+
+        result
+    }
+
+    fn highlight_conf(&self, content: &str) -> Vec<(Style, String)> {
+        let mut result = Vec::new();
+
+        for line in content.lines() {
+            let trimmed = line.trim();
+
+            if trimmed.starts_with('#') {
+                result.push((Style::default().fg(Color::DarkGray), line.to_string()));
+            } else if trimmed.contains(' ') && !trimmed.is_empty() {
+                let parts: Vec<&str> = trimmed.splitn(2, ' ').collect();
+                if parts.len() == 2 {
+                    result.push((Style::default().fg(Color::Cyan), parts[0].to_string()));
+                    result.push((Style::default(), " ".to_string()));
+                    result.push((Style::default().fg(Color::Green), parts[1].to_string()));
+                } else {
+                    result.push((Style::default(), line.to_string()));
+                }
+            } else {
+                result.push((Style::default(), line.to_string()));
+            }
+            result.push((Style::default(), "\n".to_string()));
+        }
+
+        result
+    }
+
+    fn highlight_env(&self, content: &str) -> Vec<(Style, String)> {
+        let mut result = Vec::new();
+
+        for line in content.lines() {
+            let trimmed = line.trim();
+
+            if trimmed.starts_with('#') {
+                result.push((Style::default().fg(Color::DarkGray), line.to_string()));
+            } else if trimmed.contains('=') {
+                let parts: Vec<&str> = trimmed.splitn(2, '=').collect();
+                if parts.len() == 2 {
+                    result.push((Style::default().fg(Color::Cyan), parts[0].to_string()));
+                    result.push((Style::default().fg(Color::Magenta), "=".to_string()));
+                    result.push((Style::default().fg(Color::Green), parts[1].to_string()));
+                } else {
+                    result.push((Style::default(), line.to_string()));
+                }
+            } else {
+                result.push((Style::default(), line.to_string()));
+            }
+            result.push((Style::default(), "\n".to_string()));
+        }
+
+        result
+    }
+
+    fn highlight_ssh(&self, content: &str) -> Vec<(Style, String)> {
+        let mut result = Vec::new();
+
+        for line in content.lines() {
+            let trimmed = line.trim();
+
+            if trimmed.starts_with('#') {
+                result.push((Style::default().fg(Color::DarkGray), line.to_string()));
+            } else if trimmed.contains(' ') && !trimmed.is_empty() {
+                let parts: Vec<&str> = trimmed.splitn(2, ' ').collect();
+                if parts.len() == 2 {
+                    result.push((Style::default().fg(Color::Cyan), parts[0].to_string()));
+                    result.push((Style::default(), " ".to_string()));
+                    result.push((Style::default().fg(Color::Green), parts[1].to_string()));
+                } else {
+                    result.push((Style::default(), line.to_string()));
+                }
+            } else {
+                result.push((Style::default(), line.to_string()));
+            }
+            result.push((Style::default(), "\n".to_string()));
+        }
+
+        result
+    }
+
+    fn highlight_git(&self, content: &str) -> Vec<(Style, String)> {
+        let mut result = Vec::new();
+
+        for line in content.lines() {
+            let trimmed = line.trim();
+
+            if trimmed.starts_with('#') {
+                result.push((Style::default().fg(Color::DarkGray), line.to_string()));
+            } else if trimmed.starts_with('[') && trimmed.ends_with(']') {
+                result.push((Style::default().fg(Color::Yellow), line.to_string()));
+            } else if trimmed.contains('=') {
+                let parts: Vec<&str> = trimmed.splitn(2, '=').collect();
+                if parts.len() == 2 {
+                    result.push((Style::default().fg(Color::Cyan), parts[0].to_string()));
+                    result.push((Style::default().fg(Color::Magenta), "=".to_string()));
+                    result.push((Style::default().fg(Color::Green), parts[1].to_string()));
+                } else {
+                    result.push((Style::default(), line.to_string()));
+                }
+            } else {
+                result.push((Style::default(), line.to_string()));
+            }
+            result.push((Style::default(), "\n".to_string()));
+        }
+
+        result
+    }
+
+    fn highlight_docker(&self, content: &str) -> Vec<(Style, String)> {
+        let mut result = Vec::new();
+
+        for line in content.lines() {
+            let trimmed = line.trim();
+
+            if trimmed.starts_with('#') {
+                result.push((Style::default().fg(Color::DarkGray), line.to_string()));
+            } else if trimmed.contains(' ') && !trimmed.is_empty() {
+                let parts: Vec<&str> = trimmed.splitn(2, ' ').collect();
+                if parts.len() == 2 {
+                    result.push((Style::default().fg(Color::Cyan), parts[0].to_string()));
+                    result.push((Style::default(), " ".to_string()));
+                    result.push((Style::default().fg(Color::Green), parts[1].to_string()));
+                } else {
+                    result.push((Style::default(), line.to_string()));
+                }
+            } else {
+                result.push((Style::default(), line.to_string()));
+            }
+            result.push((Style::default(), "\n".to_string()));
+        }
+
+        result
+    }
+
+    fn highlight_nginx(&self, content: &str) -> Vec<(Style, String)> {
+        let mut result = Vec::new();
+
+        for line in content.lines() {
+            let trimmed = line.trim();
+
+            if trimmed.starts_with('#') {
+                result.push((Style::default().fg(Color::DarkGray), line.to_string()));
+            } else if trimmed.ends_with('{') || trimmed.ends_with('}') {
+                result.push((Style::default().fg(Color::Yellow), line.to_string()));
+            } else if trimmed.contains(' ') && !trimmed.is_empty() {
+                let parts: Vec<&str> = trimmed.splitn(2, ' ').collect();
+                if parts.len() == 2 {
+                    result.push((Style::default().fg(Color::Cyan), parts[0].to_string()));
+                    result.push((Style::default(), " ".to_string()));
+                    result.push((Style::default().fg(Color::Green), parts[1].to_string()));
+                } else {
+                    result.push((Style::default(), line.to_string()));
+                }
+            } else {
+                result.push((Style::default(), line.to_string()));
+            }
+            result.push((Style::default(), "\n".to_string()));
+        }
+
+        result
+    }
+
+    fn highlight_apache(&self, content: &str) -> Vec<(Style, String)> {
+        let mut result = Vec::new();
+
+        for line in content.lines() {
+            let trimmed = line.trim();
+
+            if trimmed.starts_with('#') {
+                result.push((Style::default().fg(Color::DarkGray), line.to_string()));
+            } else if trimmed.starts_with('<') && trimmed.ends_with('>') {
+                result.push((Style::default().fg(Color::Yellow), line.to_string()));
+            } else if trimmed.contains(' ') && !trimmed.is_empty() {
+                let parts: Vec<&str> = trimmed.splitn(2, ' ').collect();
+                if parts.len() == 2 {
+                    result.push((Style::default().fg(Color::Cyan), parts[0].to_string()));
+                    result.push((Style::default(), " ".to_string()));
+                    result.push((Style::default().fg(Color::Green), parts[1].to_string()));
+                } else {
+                    result.push((Style::default(), line.to_string()));
+                }
+            } else {
+                result.push((Style::default(), line.to_string()));
+            }
+            result.push((Style::default(), "\n".to_string()));
+        }
+
+        result
+    }
+
+    fn highlight_systemd(&self, content: &str) -> Vec<(Style, String)> {
+        let mut result = Vec::new();
+
+        for line in content.lines() {
+            let trimmed = line.trim();
+
+            if trimmed.starts_with('#') {
+                result.push((Style::default().fg(Color::DarkGray), line.to_string()));
+            } else if trimmed.starts_with('[') && trimmed.ends_with(']') {
+                result.push((Style::default().fg(Color::Yellow), line.to_string()));
+            } else if trimmed.contains('=') {
+                let parts: Vec<&str> = trimmed.splitn(2, '=').collect();
+                if parts.len() == 2 {
+                    result.push((Style::default().fg(Color::Cyan), parts[0].to_string()));
+                    result.push((Style::default().fg(Color::Magenta), "=".to_string()));
+                    result.push((Style::default().fg(Color::Green), parts[1].to_string()));
+                } else {
+                    result.push((Style::default(), line.to_string()));
+                }
+            } else {
+                result.push((Style::default(), line.to_string()));
+            }
+            result.push((Style::default(), "\n".to_string()));
+        }
+
+        result
+    }
+
+    fn highlight_bash(&self, content: &str) -> Vec<(Style, String)> {
+        let mut result = Vec::new();
+
+        for line in content.lines() {
+            let trimmed = line.trim();
+
+            if trimmed.starts_with('#') {
+                result.push((Style::default().fg(Color::DarkGray), line.to_string()));
+            } else if trimmed.starts_with("export ") || trimmed.starts_with("alias ") {
+                // Highlight export and alias statements
+                let parts: Vec<&str> = trimmed.splitn(2, ' ').collect();
+                if parts.len() == 2 {
+                    result.push((Style::default().fg(Color::Cyan), parts[0].to_string()));
+                    result.push((Style::default(), " ".to_string()));
+                    result.push((Style::default().fg(Color::Green), parts[1].to_string()));
+                } else {
+                    result.push((Style::default(), line.to_string()));
+                }
+            } else if trimmed.contains("=") && !trimmed.contains("==") && !trimmed.contains("!=") {
+                // Highlight variable assignments
+                let parts: Vec<&str> = trimmed.splitn(2, '=').collect();
+                if parts.len() == 2 {
+                    result.push((Style::default().fg(Color::Cyan), parts[0].to_string()));
+                    result.push((Style::default().fg(Color::Magenta), "=".to_string()));
+                    result.push((Style::default().fg(Color::Green), parts[1].to_string()));
+                } else {
+                    result.push((Style::default(), line.to_string()));
+                }
+            } else if trimmed.starts_with("function ") || trimmed.contains("()") {
+                // Highlight function definitions
+                result.push((Style::default().fg(Color::Yellow), line.to_string()));
+            } else if trimmed.starts_with("if ")
+                || trimmed.starts_with("for ")
+                || trimmed.starts_with("while ")
+                || trimmed.starts_with("case ")
+                || trimmed.starts_with("elif ")
+                || trimmed.starts_with("else")
+                || trimmed.starts_with("fi")
+                || trimmed.starts_with("done")
+                || trimmed.starts_with("esac")
+                || trimmed.starts_with("then")
+            {
+                // Highlight control structures
+                result.push((Style::default().fg(Color::Magenta), line.to_string()));
+            } else if trimmed.contains("$") {
+                // Highlight lines with variables
+                let mut chars = line.chars().peekable();
+                let mut current_token = String::new();
+
+                while let Some(ch) = chars.next() {
+                    if ch == '$' {
+                        if !current_token.is_empty() {
+                            result.push((Style::default(), current_token.clone()));
+                            current_token.clear();
+                        }
+                        current_token.push(ch);
+
+                        // Collect the variable name
+                        while let Some(&next_ch) = chars.peek() {
+                            if next_ch.is_alphanumeric()
+                                || next_ch == '_'
+                                || next_ch == '{'
+                                || next_ch == '}'
+                            {
+                                current_token.push(chars.next().unwrap());
+                            } else {
+                                break;
+                            }
+                        }
+
+                        result.push((Style::default().fg(Color::Yellow), current_token.clone()));
+                        current_token.clear();
+                    } else {
+                        current_token.push(ch);
+                    }
+                }
+
+                if !current_token.is_empty() {
+                    result.push((Style::default(), current_token));
+                }
+            } else {
+                result.push((Style::default(), line.to_string()));
+            }
+            result.push((Style::default(), "\n".to_string()));
+        }
+
+        result
+    }
+
+    fn highlight_generic(&self, content: &str) -> Vec<(Style, String)> {
+        let mut result = Vec::new();
+
+        for line in content.lines() {
+            let trimmed = line.trim();
+
+            if trimmed.starts_with('#') {
+                result.push((Style::default().fg(Color::DarkGray), line.to_string()));
+            } else {
+                result.push((Style::default(), line.to_string()));
+            }
+            result.push((Style::default(), "\n".to_string()));
+        }
+
+        result
+    }
+}
+
+#[derive(Debug, Clone, Copy)]
+enum FileType {
+    Json,
+    Yaml,
+    Toml,
+    Ini,
+    Conf,
+    Env,
+    Ssh,
+    Git,
+    Docker,
+    Nginx,
+    Apache,
+    Systemd,
+    Bash,
+    Unknown,
 }
