@@ -36,26 +36,24 @@ impl AppsModule {
             for path_dir in paths {
                 if let Ok(entries) = std::fs::read_dir(&path_dir) {
                     for entry in entries.flatten() {
-                        if let Ok(file_type) = entry.file_type() {
-                            if file_type.is_file() || file_type.is_symlink() {
-                                if let Some(name) = entry.file_name().to_str() {
-                                    // On Windows, filter to common executable extensions to avoid DLLs and assets
-                                    #[cfg(windows)]
-                                    {
-                                        let lower = name.to_ascii_lowercase();
-                                        let is_exe = lower.ends_with(".exe")
-                                            || lower.ends_with(".bat")
-                                            || lower.ends_with(".cmd")
-                                            || lower.ends_with(".ps1");
-                                        if !is_exe {
-                                            continue;
-                                        }
-                                    }
-
-                                    if which::which(name).is_ok() {
-                                        executables.insert(name.to_string());
-                                    }
+                        if let Ok(file_type) = entry.file_type()
+                            && (file_type.is_file() || file_type.is_symlink())
+                            && let Some(name) = entry.file_name().to_str() {
+                            // On Windows, filter to common executable extensions to avoid DLLs and assets
+                            #[cfg(windows)]
+                            {
+                                let lower = name.to_ascii_lowercase();
+                                let is_exe = lower.ends_with(".exe")
+                                    || lower.ends_with(".bat")
+                                    || lower.ends_with(".cmd")
+                                    || lower.ends_with(".ps1");
+                                if !is_exe {
+                                    continue;
                                 }
+                            }
+
+                            if which::which(name).is_ok() {
+                                executables.insert(name.to_string());
                             }
                         }
                     }

@@ -18,7 +18,7 @@ pub enum MenuSection {
     Configs,
     Docker,
     Network,
-    SSH,
+    Ssh,
     Scripts,
     Notifications,
     History,
@@ -196,7 +196,7 @@ impl App {
                         .push("Bookmark Opened", &b.name, "info");
                 }
             }
-            MenuSection::SSH => {
+            MenuSection::Ssh => {
                 if self.selected_index < self.ssh_module.hosts.len() {
                     let host_name = self.ssh_module.hosts[self.selected_index].name.clone();
                     self.status_message = format!("Connecting to {}...", host_name);
@@ -230,7 +230,7 @@ impl App {
                             format!("Executed into container: {}", container_name);
                         self.notifications_module.push(
                             "Docker",
-                            &format!("Executed into {}", container_name),
+                            format!("Executed into {}", container_name),
                             "info",
                         );
                     }
@@ -266,7 +266,7 @@ impl App {
                         self.status_message = format!("Opened repository: {}", repo_name);
                         self.notifications_module.push(
                             "Git",
-                            &format!("Opened {}", repo_name),
+                            format!("Opened {}", repo_name),
                             "info",
                         );
                     }
@@ -281,7 +281,7 @@ impl App {
                         self.status_message = format!("Opened note: {}", note_name);
                         self.notifications_module.push(
                             "Scratchpad",
-                            &format!("Opened {}", note_name),
+                            format!("Opened {}", note_name),
                             "info",
                         );
                     }
@@ -309,7 +309,7 @@ impl App {
                         self.status_message = format!("Opened config: {}", config_name);
                         self.notifications_module.push(
                             "Config",
-                            &format!("Opened {}", config_name),
+                            format!("Opened {}", config_name),
                             "info",
                         );
                     }
@@ -329,7 +329,7 @@ impl App {
             MenuSection::Configs => {
                 "Enter config (name|path|category|description|editor): ".to_string()
             }
-            MenuSection::SSH => "Enter SSH host (name|user@host:port): ".to_string(),
+            MenuSection::Ssh => "Enter SSH host (name|user@host:port): ".to_string(),
             MenuSection::Scripts => "Enter script (name|command): ".to_string(),
             MenuSection::Scratchpad => {
                 "Enter note name (or leave empty for auto-name): ".to_string()
@@ -413,65 +413,59 @@ impl App {
     }
 
     pub fn start_service(&mut self) {
-        if self.current_section == MenuSection::Services {
-            if let Ok(msg) = self.services_module.start_service(self.selected_index) {
+        if self.current_section == MenuSection::Services
+            && let Ok(msg) = self.services_module.start_service(self.selected_index) {
                 self.status_message = format!("Started service: {}", msg);
                 self.notifications_module
                     .push("Service", "Service started", "info");
             }
-        }
     }
 
     pub fn stop_service(&mut self) {
-        if self.current_section == MenuSection::Services {
-            if let Ok(msg) = self.services_module.stop_service(self.selected_index) {
+        if self.current_section == MenuSection::Services
+            && let Ok(msg) = self.services_module.stop_service(self.selected_index) {
                 self.status_message = format!("Stopped service: {}", msg);
                 self.notifications_module
                     .push("Service", "Service stopped", "warning");
             }
-        }
     }
 
     pub fn restart_service(&mut self) {
-        if self.current_section == MenuSection::Services {
-            if let Ok(msg) = self.services_module.restart_service(self.selected_index) {
+        if self.current_section == MenuSection::Services
+            && let Ok(msg) = self.services_module.restart_service(self.selected_index) {
                 self.status_message = format!("Restarted service: {}", msg);
                 self.notifications_module
                     .push("Service", "Service restarted", "info");
             }
-        }
     }
 
     pub fn enable_service(&mut self) {
-        if self.current_section == MenuSection::Services {
-            if let Ok(msg) = self.services_module.enable_service(self.selected_index) {
+        if self.current_section == MenuSection::Services
+            && let Ok(msg) = self.services_module.enable_service(self.selected_index) {
                 self.status_message = format!("Enabled service: {}", msg);
                 self.notifications_module
                     .push("Service", "Service enabled", "info");
             }
-        }
     }
 
     pub fn disable_service(&mut self) {
-        if self.current_section == MenuSection::Services {
-            if let Ok(msg) = self.services_module.disable_service(self.selected_index) {
+        if self.current_section == MenuSection::Services
+            && let Ok(msg) = self.services_module.disable_service(self.selected_index) {
                 self.status_message = format!("Disabled service: {}", msg);
                 self.notifications_module
                     .push("Service", "Service disabled", "warning");
             }
-        }
     }
 
     pub fn view_service_logs(&mut self) {
-        if self.current_section == MenuSection::Services {
-            if let Ok(logs) = self
+        if self.current_section == MenuSection::Services
+            && let Ok(logs) = self
                 .services_module
                 .get_service_logs(self.selected_index, 50)
             {
                 self.status_message =
                     format!("Logs: {}...", logs.chars().take(100).collect::<String>());
             }
-        }
     }
 
     pub fn search_services(&mut self) {
@@ -590,8 +584,8 @@ impl App {
             MenuSection::Clipboard => MenuSection::Configs,
             MenuSection::Configs => MenuSection::Docker,
             MenuSection::Docker => MenuSection::Network,
-            MenuSection::Network => MenuSection::SSH,
-            MenuSection::SSH => MenuSection::Scripts,
+            MenuSection::Network => MenuSection::Ssh,
+            MenuSection::Ssh => MenuSection::Scripts,
             MenuSection::Scripts => MenuSection::Git,
             MenuSection::Git => MenuSection::History,
             MenuSection::History => MenuSection::Scratchpad,
@@ -612,8 +606,8 @@ impl App {
             MenuSection::Configs => MenuSection::Clipboard,
             MenuSection::Docker => MenuSection::Configs,
             MenuSection::Network => MenuSection::Docker,
-            MenuSection::SSH => MenuSection::Network,
-            MenuSection::Scripts => MenuSection::SSH,
+            MenuSection::Ssh => MenuSection::Network,
+            MenuSection::Scripts => MenuSection::Ssh,
             MenuSection::Git => MenuSection::Scripts,
             MenuSection::History => MenuSection::Git,
             MenuSection::Scratchpad => MenuSection::History,
@@ -639,7 +633,7 @@ impl App {
                 self.notifications_module
                     .push("Bookmark Added", &input, "info");
             }
-            MenuSection::SSH => {
+            MenuSection::Ssh => {
                 self.ssh_module.add_from_string(&input)?;
                 self.status_message = "SSH host added".to_string();
                 self.notifications_module
@@ -711,7 +705,7 @@ impl App {
                 self.notifications_module
                     .push("Bookmark Deleted", "", "warning");
             }
-            MenuSection::SSH => {
+            MenuSection::Ssh => {
                 self.ssh_module.delete(self.selected_index);
                 self.status_message = "SSH host deleted".to_string();
                 self.notifications_module
@@ -825,7 +819,7 @@ impl App {
                     self.network_module.listening_ports.len()
                 }
             },
-            MenuSection::SSH => self.ssh_module.hosts.len(),
+            MenuSection::Ssh => self.ssh_module.hosts.len(),
             MenuSection::Scripts => self.scripts_module.scripts.len(),
             MenuSection::Notifications => self.notifications_module.notifications.len(),
             MenuSection::History => self.shell_module.entries.len(),
@@ -837,8 +831,8 @@ impl App {
     }
 
     pub async fn schedule_selected_script(&mut self) -> Result<()> {
-        if self.current_section == MenuSection::Scripts {
-            if self.selected_index < self.scripts_module.scripts.len() {
+        if self.current_section == MenuSection::Scripts
+            && self.selected_index < self.scripts_module.scripts.len() {
                 self.scripts_module
                     .schedule_script(self.selected_index, 60)
                     .await?;
@@ -849,13 +843,12 @@ impl App {
                 self.notifications_module
                     .push("Script Scheduled", &name, "info");
             }
-        }
         Ok(())
     }
 
     pub fn disconnect_latest_session(&mut self) {
-        if self.current_section == MenuSection::SSH {
-            if !self.ssh_module.active_sessions.is_empty() {
+        if self.current_section == MenuSection::Ssh
+            && !self.ssh_module.active_sessions.is_empty() {
                 let idx = self.ssh_module.active_sessions.len() - 1;
                 let name = self.ssh_module.active_sessions[idx].name.clone();
                 match self.ssh_module.disconnect(idx) {
@@ -873,7 +866,6 @@ impl App {
                     }
                 }
             }
-        }
     }
 
     pub fn report_error(&mut self, context: &str, err: anyhow::Error) {
@@ -1032,7 +1024,7 @@ impl App {
                     }
                 }
             }
-            MenuSection::SSH => {
+            MenuSection::Ssh => {
                 for (i, h) in self.ssh_module.hosts.iter().enumerate() {
                     let mut target = h.host.clone();
                     if !h.user.is_empty() {
@@ -1041,7 +1033,7 @@ impl App {
                     let label = format!("SSH: {} {}:{}", h.name, target, h.port);
                     if let Some(score) = score_match(&label, &self.search_query) {
                         results.push(SearchResult {
-                            section: MenuSection::SSH,
+                            section: MenuSection::Ssh,
                             index: i,
                             label,
                             score,
@@ -1322,7 +1314,7 @@ impl App {
                 self.status_message = format!("Renamed to: {}", input);
                 self.notifications_module.push(
                     "Scratchpad",
-                    &format!("Renamed to {}", input),
+                    format!("Renamed to {}", input),
                     "info",
                 );
             }
@@ -1346,7 +1338,7 @@ impl App {
                 self.status_message = format!("Exported to: {}", input);
                 self.notifications_module.push(
                     "Scratchpad",
-                    &format!("Exported to {}", input),
+                    format!("Exported to {}", input),
                     "info",
                 );
             }
@@ -1377,7 +1369,7 @@ impl App {
             if !results.is_empty() {
                 self.notifications_module.push(
                     "Shell",
-                    &format!("Found {} matches", results.len()),
+                    format!("Found {} matches", results.len()),
                     "info",
                 );
             }
@@ -1387,45 +1379,41 @@ impl App {
 
     // Configs helper methods
     pub fn backup_selected_config(&mut self) -> Result<()> {
-        if self.current_section == MenuSection::Configs {
-            if let Ok(backup_path) = self.configs_module.backup_config(self.selected_index) {
+        if self.current_section == MenuSection::Configs
+            && let Ok(backup_path) = self.configs_module.backup_config(self.selected_index) {
                 self.status_message = format!("Backed up to: {}", backup_path);
                 self.notifications_module
                     .push("Config", "Backup created", "info");
             }
-        }
         Ok(())
     }
 
     pub fn view_selected_config(&mut self) -> Result<()> {
-        if self.current_section == MenuSection::Configs {
-            if let Ok(content) = self.configs_module.view_config(self.selected_index) {
+        if self.current_section == MenuSection::Configs
+            && let Ok(content) = self.configs_module.view_config(self.selected_index) {
                 self.status_message = format!("Preview: {} lines", content.lines().count());
             }
-        }
         Ok(())
     }
 
     pub fn config_copy_to_clipboard(&mut self) -> Result<()> {
-        if self.current_section == MenuSection::Configs {
-            if let Ok(content) = self.configs_module.copy_to_clipboard(self.selected_index) {
+        if self.current_section == MenuSection::Configs
+            && let Ok(content) = self.configs_module.copy_to_clipboard(self.selected_index) {
                 self.status_message = format!("Copied {} bytes to clipboard", content.len());
                 self.notifications_module
                     .push("Config", "Copied to clipboard", "info");
             }
-        }
         Ok(())
     }
 
     pub fn open_config_in_file_manager(&mut self) -> Result<()> {
-        if self.current_section == MenuSection::Configs {
-            if let Err(e) = self
+        if self.current_section == MenuSection::Configs
+            && let Err(e) = self
                 .configs_module
                 .open_in_file_manager(self.selected_index)
             {
                 self.report_error("Open folder failed", e);
             }
-        }
         Ok(())
     }
 
@@ -1445,7 +1433,7 @@ impl App {
             self.selected_index = results[0];
             self.notifications_module.push(
                 "Configs",
-                &format!("Found {} matches", results.len()),
+                format!("Found {} matches", results.len()),
                 "info",
             );
         }

@@ -64,9 +64,9 @@ impl ShellModule {
                     let path = parts[1];
                     if path == "~" {
                         dirs::home_dir().unwrap_or_else(|| PathBuf::from("/"))
-                    } else if path.starts_with("~/") {
+                    } else if let Some(stripped) = path.strip_prefix("~/") {
                         if let Some(home) = dirs::home_dir() {
-                            home.join(&path[2..])
+                            home.join(stripped)
                         } else {
                             PathBuf::from(path)
                         }

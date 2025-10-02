@@ -36,7 +36,7 @@ pub fn draw(f: &mut Frame, app: &App) {
         MenuSection::Configs => draw_configs(f, app, main_chunks[1]),
         MenuSection::Docker => draw_docker(f, app, main_chunks[1]),
         MenuSection::Network => draw_network(f, app, main_chunks[1]),
-        MenuSection::SSH => draw_ssh(f, app, main_chunks[1]),
+        MenuSection::Ssh => draw_ssh(f, app, main_chunks[1]),
         MenuSection::Scripts => draw_scripts(f, app, main_chunks[1]),
         MenuSection::Notifications => draw_notifications(f, app, main_chunks[1]),
         MenuSection::History => draw_history(f, app, main_chunks[1]),
@@ -108,7 +108,7 @@ fn draw_menu(f: &mut Frame, app: &App, area: Rect) {
         ("\\", "Configs", MenuSection::Configs),
         ("5", "Docker", MenuSection::Docker),
         ("6", "Network", MenuSection::Network),
-        ("7", "SSH", MenuSection::SSH),
+        ("7", "SSH", MenuSection::Ssh),
         ("8", "Scripts", MenuSection::Scripts),
         ("9", "Git", MenuSection::Git),
         ("0", "History", MenuSection::History),
@@ -322,11 +322,7 @@ fn draw_apps(f: &mut Frame, app: &App, area: Rect) {
     let running_processes = &app.apps_module.running_processes;
     let process_window_height = (chunks[1].height.saturating_sub(2)) as usize;
     let proc_len = running_processes.len();
-    let process_selection = if app.selected_index >= available_len {
-        app.selected_index - available_len
-    } else {
-        0
-    };
+    let process_selection = app.selected_index.saturating_sub(available_len);
     let process_start = if proc_len == 0 {
         0
     } else {
@@ -1598,7 +1594,7 @@ fn draw_configs(f: &mut Frame, app: &App, area: Rect) {
                     format!("[{}] ", config.category),
                     Style::default().fg(category_color),
                 ),
-                Span::raw(format!("{}", truncated_path)),
+                Span::raw(truncated_path.to_string()),
                 Span::styled(size_info, Style::default().fg(Color::Gray)),
                 Span::styled(modified_info, Style::default().fg(Color::Gray)),
             ]))

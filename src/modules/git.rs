@@ -29,9 +29,9 @@ impl GitModule {
             for path_str in config_paths {
                 let path = if path_str == "~" || path_str == "~/" || path_str == "~\\" {
                     dirs::home_dir().unwrap_or_else(|| PathBuf::from("/"))
-                } else if path_str.starts_with("~/") {
+                } else if let Some(stripped) = path_str.strip_prefix("~/") {
                     if let Some(home) = dirs::home_dir() {
-                        home.join(&path_str[2..])
+                        home.join(stripped)
                     } else {
                         PathBuf::from(path_str)
                     }
@@ -116,11 +116,10 @@ impl GitModule {
                     }
                     if let Some(path) = next_path {
                         // Skip hidden directories (except .git which we check above)
-                        if let Some(name) = path.file_name() {
-                            if !name.to_string_lossy().starts_with('.') {
+                        if let Some(name) = path.file_name()
+                            && !name.to_string_lossy().starts_with('.') {
                                 let _ = self.scan_directory(&path, max_depth - 1);
                             }
-                        }
                     }
                 }
             }
@@ -136,7 +135,7 @@ impl GitModule {
         let branch = Command::new("git")
             .arg("-C")
             .arg(path)
-            .args(&["branch", "--show-current"])
+            .args(["branch", "--show-current"])
             .output()
             .ok()
             .and_then(|o| {
@@ -152,7 +151,7 @@ impl GitModule {
         let status_output_opt = Command::new("git")
             .arg("-C")
             .arg(path)
-            .args(&["status", "--porcelain"])
+            .args(["status", "--porcelain"])
             .output()
             .ok();
 
@@ -174,7 +173,7 @@ impl GitModule {
             let upstream_output = Command::new("git")
                 .arg("-C")
                 .arg(path)
-                .args(&[
+                .args([
                     "rev-list",
                     "--count",
                     "--left-right",
@@ -216,7 +215,7 @@ impl GitModule {
         let last_commit = Command::new("git")
             .arg("-C")
             .arg(path)
-            .args(&["log", "-1", "--pretty=%s"])
+            .args(["log", "-1", "--pretty=%s"])
             .output()
             .ok()
             .and_then(|o| {
@@ -251,8 +250,8 @@ impl GitModule {
 
         // Then update the repos
         for (i, updated) in updates.into_iter().enumerate() {
-            if let Some(updated) = updated {
-                if let Some(repo) = self.repos.get_mut(i) {
+            if let Some(updated) = updated
+                && let Some(repo) = self.repos.get_mut(i) {
                     repo.branch = updated.branch;
                     repo.status = updated.status;
                     repo.uncommitted_changes = updated.uncommitted_changes;
@@ -260,7 +259,6 @@ impl GitModule {
                     repo.behind = updated.behind;
                     repo.last_commit = updated.last_commit;
                 }
-            }
         }
         Ok(())
     }
@@ -310,7 +308,7 @@ impl GitModule {
         let repo = &self.repos[index];
 
         let output = Command::new("git")
-            .args(&["-C", repo.path.to_str().unwrap_or(""), "pull"])
+            .args(["-C", repo.path.to_str().unwrap_or(""), "pull"])
             .output()?;
 
         Ok(String::from_utf8_lossy(&output.stdout).to_string())
@@ -324,7 +322,7 @@ impl GitModule {
         let repo = &self.repos[index];
 
         let output = Command::new("git")
-            .args(&["-C", repo.path.to_str().unwrap_or(""), "push"])
+            .args(["-C", repo.path.to_str().unwrap_or(""), "push"])
             .output()?;
 
         Ok(String::from_utf8_lossy(&output.stdout).to_string())
@@ -338,7 +336,7 @@ impl GitModule {
         let repo = &self.repos[index];
 
         let output = Command::new("git")
-            .args(&["-C", repo.path.to_str().unwrap_or(""), "fetch"])
+            .args(["-C", repo.path.to_str().unwrap_or(""), "fetch"])
             .output()?;
 
         Ok(String::from_utf8_lossy(&output.stdout).to_string())
@@ -353,12 +351,12 @@ impl GitModule {
 
         // Stage all changes
         Command::new("git")
-            .args(&["-C", repo.path.to_str().unwrap_or(""), "add", "."])
+            .args(["-C", repo.path.to_str().unwrap_or(""), "add", "."])
             .output()?;
 
         // Commit
         let output = Command::new("git")
-            .args(&[
+            .args([
                 "-C",
                 repo.path.to_str().unwrap_or(""),
                 "commit",
@@ -378,7 +376,7 @@ impl GitModule {
         let repo = &self.repos[index];
 
         let output = Command::new("git")
-            .args(&["-C", repo.path.to_str().unwrap_or(""), "checkout", branch])
+            .args(["-C", repo.path.to_str().unwrap_or(""), "checkout", branch])
             .output()?;
 
         if output.status.success() {
@@ -396,19 +394,18 @@ impl GitModule {
         let repo = &self.repos[index];
 
         let output = Command::new("git")
-            .args(&["-C", repo.path.to_str().unwrap_or(""), "branch", "-a"])
+            .args(["-C", repo.path.to_str().unwrap_or(""), "branch", "-a"])
             .output()
             .ok();
 
-        if let Some(output) = output {
-            if output.status.success() {
+        if let Some(output) = output
+            && output.status.success() {
                 return String::from_utf8_lossy(&output.stdout)
                     .lines()
                     .map(|l| l.trim().trim_start_matches("* ").to_string())
                     .filter(|l| !l.is_empty())
                     .collect();
             }
-        }
 
         vec![]
     }
@@ -421,7 +418,7 @@ impl GitModule {
         let repo = &self.repos[index];
 
         let output = Command::new("git")
-            .args(&["-C", repo.path.to_str().unwrap_or(""), "stash"])
+            .args(["-C", repo.path.to_str().unwrap_or(""), "stash"])
             .output()?;
 
         Ok(String::from_utf8_lossy(&output.stdout).to_string())

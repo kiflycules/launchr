@@ -54,20 +54,20 @@ impl ScratchpadModule {
 
         let entries = fs::read_dir(&self.scratchpad_dir)?;
         for entry in entries.flatten() {
-            if let Ok(metadata) = entry.metadata() {
-                if metadata.is_file() {
-                    if let Some(name) = entry.file_name().to_str() {
+            if let Ok(metadata) = entry.metadata()
+                && metadata.is_file()
+                    && let Some(name) = entry.file_name().to_str() {
                         let path = entry.path();
                         let created_at = metadata
                             .created()
                             .ok()
-                            .map(|t| DateTime::<Local>::from(t))
+                            .map(DateTime::<Local>::from)
                             .unwrap_or_else(Local::now);
 
                         let modified_at = metadata
                             .modified()
                             .ok()
-                            .map(|t| DateTime::<Local>::from(t))
+                            .map(DateTime::<Local>::from)
                             .unwrap_or_else(Local::now);
 
                         self.notes.push(ScratchpadNote {
@@ -78,8 +78,6 @@ impl ScratchpadModule {
                             size_bytes: metadata.len(),
                         });
                     }
-                }
-            }
         }
 
         // Sort by modified time (newest first)
@@ -143,7 +141,7 @@ impl ScratchpadModule {
 
                 let mut spawned = false;
                 for (term, args) in &terminals {
-                    if let Ok(_) = Command::new(term).args(args).spawn() {
+                    if Command::new(term).args(args).spawn().is_ok() {
                         spawned = true;
                         break;
                     }
@@ -303,11 +301,10 @@ impl ScratchpadModule {
                 }
 
                 // Search in content
-                if let Ok(content) = fs::read_to_string(&note.path) {
-                    if content.to_lowercase().contains(&query_lower) {
+                if let Ok(content) = fs::read_to_string(&note.path)
+                    && content.to_lowercase().contains(&query_lower) {
                         return true;
                     }
-                }
 
                 false
             })

@@ -51,8 +51,8 @@ async fn run_app<B: ratatui::backend::Backend>(
     loop {
         terminal.draw(|f| ui::draw(f, app))?;
 
-        if event::poll(Duration::from_millis(100))? {
-            if let Event::Key(KeyEvent {
+        if event::poll(Duration::from_millis(100))?
+            && let Event::Key(KeyEvent {
                 code,
                 modifiers,
                 kind,
@@ -77,7 +77,7 @@ async fn run_app<B: ratatui::backend::Backend>(
                         KeyCode::Char('4') => app.current_section = MenuSection::Clipboard,
                         KeyCode::Char('5') => app.current_section = MenuSection::Docker,
                         KeyCode::Char('6') => app.current_section = MenuSection::Network,
-                        KeyCode::Char('7') => app.current_section = MenuSection::SSH,
+                        KeyCode::Char('7') => app.current_section = MenuSection::Ssh,
                         KeyCode::Char('8') => app.current_section = MenuSection::Scripts,
                         KeyCode::Char('9') => app.current_section = MenuSection::Git,
                         KeyCode::Char('0') => app.current_section = MenuSection::History,
@@ -136,10 +136,8 @@ async fn run_app<B: ratatui::backend::Backend>(
                                 }
                             } else if app.current_section == MenuSection::Services {
                                 app.stop_service();
-                            } else {
-                                if let Err(e) = app.schedule_selected_script().await {
-                                    app.report_error("Schedule failed", e);
-                                }
+                            } else if let Err(e) = app.schedule_selected_script().await {
+                                app.report_error("Schedule failed", e);
                             }
                         }
                         KeyCode::Char('u') => {
@@ -220,11 +218,10 @@ async fn run_app<B: ratatui::backend::Backend>(
                                 if let Err(e) = app.config_copy_to_clipboard() {
                                     app.report_error("Copy failed", e);
                                 }
-                            } else if app.current_section == MenuSection::Scratchpad {
-                                if let Err(e) = app.scratchpad_copy_to_clipboard() {
+                            } else if app.current_section == MenuSection::Scratchpad
+                                && let Err(e) = app.scratchpad_copy_to_clipboard() {
                                     app.report_error("Copy failed", e);
                                 }
-                            }
                         }
                         KeyCode::Char('i') => {
                             if app.current_section == MenuSection::Shell {
@@ -247,18 +244,16 @@ async fn run_app<B: ratatui::backend::Backend>(
                             }
                         }
                         KeyCode::Char('b') => {
-                            if app.current_section == MenuSection::Configs {
-                                if let Err(e) = app.backup_selected_config() {
+                            if app.current_section == MenuSection::Configs
+                                && let Err(e) = app.backup_selected_config() {
                                     app.report_error("Backup failed", e);
                                 }
-                            }
                         }
                         KeyCode::Char('o') => {
-                            if app.current_section == MenuSection::Configs {
-                                if let Err(e) = app.open_config_in_file_manager() {
+                            if app.current_section == MenuSection::Configs
+                                && let Err(e) = app.open_config_in_file_manager() {
                                     app.report_error("Open folder failed", e);
                                 }
-                            }
                         }
                         KeyCode::Tab => app.next_section(),
                         KeyCode::BackTab => app.previous_section(),
@@ -343,7 +338,6 @@ async fn run_app<B: ratatui::backend::Backend>(
                     },
                 }
             }
-        }
 
         if let Err(e) = app.auto_refresh().await {
             app.report_error("Auto refresh failed", e);

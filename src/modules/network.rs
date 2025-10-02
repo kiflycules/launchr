@@ -73,23 +73,21 @@ impl NetworkModule {
         #[cfg(target_os = "linux")]
         {
             // Use ss command for better performance than netstat
-            let output = Command::new("ss").args(&["-tupan"]).output();
+            let output = Command::new("ss").args(["-tupan"]).output();
 
-            if let Ok(output) = output {
-                if output.status.success() {
+            if let Ok(output) = output
+                && output.status.success() {
                     let stdout = String::from_utf8_lossy(&output.stdout);
                     for line in stdout.lines().skip(1) {
-                        if let Some(conn) = self.parse_ss_line(line) {
-                            if self.filter_state.is_none()
-                                || self.filter_state.as_ref() == Some(&conn.state)
+                        if let Some(conn) = self.parse_ss_line(line)
+                            && (self.filter_state.is_none()
+                                || self.filter_state.as_ref() == Some(&conn.state))
                             {
                                 self.connections.push(conn);
                             }
-                        }
                     }
                     return Ok(());
                 }
-            }
             // Fallback to netstat
             self.use_netstat()?;
         }
@@ -122,18 +120,17 @@ impl NetworkModule {
 
     #[allow(dead_code)]
     fn use_netstat(&mut self) -> Result<()> {
-        let output = Command::new("netstat").args(&["-an"]).output()?;
+        let output = Command::new("netstat").args(["-an"]).output()?;
 
         if output.status.success() {
             let stdout = String::from_utf8_lossy(&output.stdout);
             for line in stdout.lines() {
-                if let Some(conn) = self.parse_netstat_line(line) {
-                    if self.filter_state.is_none()
-                        || self.filter_state.as_ref() == Some(&conn.state)
+                if let Some(conn) = self.parse_netstat_line(line)
+                    && (self.filter_state.is_none()
+                        || self.filter_state.as_ref() == Some(&conn.state))
                     {
                         self.connections.push(conn);
                     }
-                }
             }
         }
         Ok(())
@@ -181,13 +178,12 @@ impl NetworkModule {
                 let pid = pid_str[..pid_end].parse::<u32>().ok();
 
                 // Extract process name
-                if let Some(name_start) = users_field.find("((\"") {
-                    if let Some(name_end) = users_field[name_start + 3..].find('\"') {
+                if let Some(name_start) = users_field.find("((\"")
+                    && let Some(name_end) = users_field[name_start + 3..].find('\"') {
                         let name =
                             users_field[name_start + 3..name_start + 3 + name_end].to_string();
                         return (pid, name);
                     }
-                }
                 return (pid, String::from("?"));
             }
         }
@@ -267,7 +263,7 @@ impl NetworkModule {
         {
             // Use ip command
             let output = Command::new("ip")
-                .args(&["-brief", "addr", "show"])
+                .args(["-brief", "addr", "show"])
                 .output()?;
 
             if output.status.success() {
@@ -426,7 +422,7 @@ impl NetworkModule {
 
         #[cfg(target_os = "linux")]
         {
-            let output = Command::new("ss").args(&["-tulpn"]).output()?;
+            let output = Command::new("ss").args(["-tulpn"]).output()?;
 
             if output.status.success() {
                 let stdout = String::from_utf8_lossy(&output.stdout);
@@ -484,7 +480,7 @@ impl NetworkModule {
         let local_addr = parts[4];
 
         // Extract port from address (format: *:port or ip:port)
-        let port = local_addr.split(':').last()?.parse::<u16>().ok()?;
+        let port = local_addr.split(':').next_back()?.parse::<u16>().ok()?;
 
         let (pid, process_name) = if parts.len() > 6 {
             self.extract_pid_from_users(parts[6])

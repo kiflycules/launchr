@@ -30,14 +30,12 @@ impl ClipboardModule {
         #[cfg(feature = "clipboard")]
         {
             use clipboard::{ClipboardContext, ClipboardProvider};
-            if let Ok(mut ctx) = ClipboardContext::new() {
-                if let Ok(content) = ctx.get_contents() {
-                    if !content.is_empty() && content != self.last_clipboard_content {
+            if let Ok(mut ctx) = ClipboardContext::new()
+                && let Ok(content) = ctx.get_contents()
+                    && !content.is_empty() && content != self.last_clipboard_content {
                         self.add_entry(content.clone(), "text");
                         self.last_clipboard_content = content;
                     }
-                }
-            }
         }
 
         // Fallback for systems without clipboard support
@@ -52,11 +50,10 @@ impl ClipboardModule {
 
     pub fn add_entry(&mut self, content: String, content_type: &str) {
         // Don't add duplicates of the most recent entry
-        if let Some(last) = self.entries.front() {
-            if last.content == content && !last.pinned {
+        if let Some(last) = self.entries.front()
+            && last.content == content && !last.pinned {
                 return;
             }
-        }
 
         let entry = ClipboardEntry {
             content,

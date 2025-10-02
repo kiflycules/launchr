@@ -101,14 +101,13 @@ impl SSHModule {
                     break;
                 }
             }
-            if !connected {
-                if let Ok(child) = Command::new("ssh")
+            if !connected
+                && let Ok(child) = Command::new("ssh")
                     .args(["-p", port_s.as_str(), target.as_str()])
                     .spawn()
                 {
                     session_pid = child.id().into();
                 }
-            }
         }
 
         #[cfg(windows)]
@@ -240,8 +239,8 @@ impl SSHModule {
         }
 
         // Fallback: if we had a stored PID, try it as well
-        if !killed_any {
-            if let Some(pid) = session.pid {
+        if !killed_any
+            && let Some(pid) = session.pid {
                 #[cfg(unix)]
                 {
                     use std::process::Command as StdCommand;
@@ -258,7 +257,6 @@ impl SSHModule {
                         .output();
                 }
             }
-        }
 
         // Remove from active list immediately; periodic refresh will also rebuild
         self.active_sessions.remove(index);
@@ -272,7 +270,7 @@ impl SSHModule {
         // Build a set of detected sessions by scanning processes whose command contains an ssh invocation
         let mut detected: Vec<(String, String)> = Vec::new(); // (name, host)
 
-        for (_pid, proc) in self.system.processes() {
+        for proc in self.system.processes().values() {
             let tokens: Vec<String> = proc
                 .cmd()
                 .iter()
@@ -309,11 +307,10 @@ impl SSHModule {
 
                 // If a port is specified, check '-p <port>' in tokens; otherwise accept
                 let mut port_ok = true;
-                if let Some(p_idx) = tokens.iter().position(|t| t == "-p") {
-                    if let Some(p_val) = tokens.get(p_idx + 1) {
+                if let Some(p_idx) = tokens.iter().position(|t| t == "-p")
+                    && let Some(p_val) = tokens.get(p_idx + 1) {
                         port_ok = *p_val == h.port.to_string();
                     }
-                }
 
                 if port_ok {
                     detected.push((h.name.clone(), h.host.clone()));

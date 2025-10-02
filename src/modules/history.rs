@@ -140,8 +140,8 @@ fn load_zsh_history() -> Vec<HistoryEntry> {
     if let Ok(content) = fs::read_to_string(path) {
         let mut out = Vec::new();
         for line in content.lines() {
-            if let Some(rest) = line.strip_prefix(": ") {
-                if let Some((ts_part, cmd)) = rest.split_once(";") {
+            if let Some(rest) = line.strip_prefix(": ")
+                && let Some((ts_part, cmd)) = rest.split_once(";") {
                     let ts_str = ts_part.split(':').next().unwrap_or("");
                     let ts = ts_str
                         .parse::<i64>()
@@ -153,7 +153,6 @@ fn load_zsh_history() -> Vec<HistoryEntry> {
                     });
                     continue;
                 }
-            }
             out.push(HistoryEntry {
                 timestamp: None,
                 command: line.to_string(),
@@ -190,11 +189,10 @@ fn load_fish_history() -> Vec<HistoryEntry> {
                     });
                 }
                 cur_cmd = Some(rest.to_string());
-            } else if let Some(rest) = line.strip_prefix("when: ") {
-                if let Ok(epoch) = rest.parse::<i64>() {
+            } else if let Some(rest) = line.strip_prefix("when: ")
+                && let Ok(epoch) = rest.parse::<i64>() {
                     cur_when = Local.timestamp_opt(epoch, 0).single();
                 }
-            }
         }
         if let Some(cmd) = cur_cmd.take() {
             out.push(HistoryEntry {

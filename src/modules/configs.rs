@@ -80,11 +80,10 @@ impl ConfigsModule {
                 if let Ok(metadata) = fs::metadata(&config.path) {
                     config.file_size = Some(metadata.len());
 
-                    if let Ok(modified) = metadata.modified() {
-                        if let Ok(duration) = modified.elapsed() {
+                    if let Ok(modified) = metadata.modified()
+                        && let Ok(duration) = modified.elapsed() {
                             config.last_modified = Some(Self::format_time_ago(duration));
                         }
-                    }
                 }
             } else {
                 config.file_size = None;
@@ -289,7 +288,7 @@ impl ConfigsModule {
         {
             use std::process::Stdio;
             let mut child = Command::new("xclip")
-                .args(&["-selection", "clipboard"])
+                .args(["-selection", "clipboard"])
                 .stdin(Stdio::piped())
                 .spawn()?;
 

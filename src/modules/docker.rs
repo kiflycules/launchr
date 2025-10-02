@@ -108,7 +108,7 @@ impl DockerModule {
         self.images.clear();
 
         let output = Command::new("docker")
-            .args(&[
+            .args([
                 "images",
                 "--format",
                 "{{.ID}}|{{.Repository}}|{{.Tag}}|{{.Size}}|{{.CreatedAt}}",
@@ -145,7 +145,7 @@ impl DockerModule {
         let container = &self.containers[index];
 
         Command::new("docker")
-            .args(&["start", &container.id])
+            .args(["start", &container.id])
             .output()?;
 
         Ok(())
@@ -159,7 +159,7 @@ impl DockerModule {
         let container = &self.containers[index];
 
         Command::new("docker")
-            .args(&["stop", &container.id])
+            .args(["stop", &container.id])
             .output()?;
 
         Ok(())
@@ -173,7 +173,7 @@ impl DockerModule {
         let container = &self.containers[index];
 
         Command::new("docker")
-            .args(&["restart", &container.id])
+            .args(["restart", &container.id])
             .output()?;
 
         Ok(())
@@ -187,7 +187,7 @@ impl DockerModule {
         let container = &self.containers[index];
 
         Command::new("docker")
-            .args(&["rm", "-f", &container.id])
+            .args(["rm", "-f", &container.id])
             .output()?;
 
         Ok(())
@@ -240,7 +240,7 @@ impl DockerModule {
         let container = &self.containers[index];
 
         let output = Command::new("docker")
-            .args(&["logs", "--tail", "50", &container.id])
+            .args(["logs", "--tail", "50", &container.id])
             .output()?;
 
         Ok(String::from_utf8_lossy(&output.stdout).to_string())
@@ -253,7 +253,7 @@ impl DockerModule {
         }
         let image = &self.images[index];
 
-        Command::new("docker").args(&["rmi", &image.id]).output()?;
+        Command::new("docker").args(["rmi", &image.id]).output()?;
 
         Ok(())
     }
@@ -271,7 +271,7 @@ impl DockerModule {
     #[allow(dead_code)]
     pub fn prune_system(&self) -> Result<String> {
         let output = Command::new("docker")
-            .args(&["system", "prune", "-f"])
+            .args(["system", "prune", "-f"])
             .output()?;
 
         Ok(String::from_utf8_lossy(&output.stdout).to_string())

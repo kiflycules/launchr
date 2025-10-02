@@ -125,7 +125,7 @@ impl ServicesModule {
         };
 
         let output = Command::new("systemctl")
-            .args(&[
+            .args([
                 scope,
                 "list-units",
                 "--type=service",
@@ -204,7 +204,7 @@ impl ServicesModule {
 
         // Check if enabled
         if let Ok(output) = Command::new("systemctl")
-            .args(&[scope, "is-enabled", &format!("{}.service", service)])
+            .args([scope, "is-enabled", &format!("{}.service", service)])
             .output()
         {
             enabled = String::from_utf8_lossy(&output.stdout).trim() == "enabled";
@@ -212,7 +212,7 @@ impl ServicesModule {
 
         // Get status for more details
         if let Ok(output) = Command::new("systemctl")
-            .args(&[
+            .args([
                 scope,
                 "show",
                 &format!("{}.service", service),
@@ -224,22 +224,19 @@ impl ServicesModule {
 
             for line in status.lines() {
                 if let Some(value) = line.strip_prefix("MainPID=") {
-                    if let Ok(p) = value.parse::<u32>() {
-                        if p > 0 {
+                    if let Ok(p) = value.parse::<u32>()
+                        && p > 0 {
                             pid = Some(p);
                         }
-                    }
                 } else if let Some(value) = line.strip_prefix("MemoryCurrent=") {
-                    if let Ok(bytes) = value.parse::<u64>() {
-                        if bytes > 0 {
+                    if let Ok(bytes) = value.parse::<u64>()
+                        && bytes > 0 {
                             memory = Some(Self::format_memory(bytes));
                         }
-                    }
-                } else if let Some(value) = line.strip_prefix("ActiveEnterTimestamp=") {
-                    if !value.is_empty() && value != "0" {
+                } else if let Some(value) = line.strip_prefix("ActiveEnterTimestamp=")
+                    && !value.is_empty() && value != "0" {
                         uptime = Some(value.to_string());
                     }
-                }
             }
         }
 
@@ -492,7 +489,7 @@ impl ServicesModule {
             "--system"
         };
         let output = Command::new("systemctl")
-            .args(&[scope, "start", &format!("{}.service", service)])
+            .args([scope, "start", &format!("{}.service", service)])
             .output()?;
 
         Ok(String::from_utf8_lossy(&output.stderr).to_string())
@@ -506,7 +503,7 @@ impl ServicesModule {
             "--system"
         };
         let output = Command::new("systemctl")
-            .args(&[scope, "stop", &format!("{}.service", service)])
+            .args([scope, "stop", &format!("{}.service", service)])
             .output()?;
 
         Ok(String::from_utf8_lossy(&output.stderr).to_string())
@@ -520,7 +517,7 @@ impl ServicesModule {
             "--system"
         };
         let output = Command::new("systemctl")
-            .args(&[scope, "restart", &format!("{}.service", service)])
+            .args([scope, "restart", &format!("{}.service", service)])
             .output()?;
 
         Ok(String::from_utf8_lossy(&output.stderr).to_string())
@@ -534,7 +531,7 @@ impl ServicesModule {
             "--system"
         };
         let output = Command::new("systemctl")
-            .args(&[scope, "enable", &format!("{}.service", service)])
+            .args([scope, "enable", &format!("{}.service", service)])
             .output()?;
 
         Ok(String::from_utf8_lossy(&output.stdout).to_string())
@@ -548,7 +545,7 @@ impl ServicesModule {
             "--system"
         };
         let output = Command::new("systemctl")
-            .args(&[scope, "disable", &format!("{}.service", service)])
+            .args([scope, "disable", &format!("{}.service", service)])
             .output()?;
 
         Ok(String::from_utf8_lossy(&output.stdout).to_string())
@@ -562,7 +559,7 @@ impl ServicesModule {
             "--system"
         };
         let output = Command::new("journalctl")
-            .args(&[
+            .args([
                 scope,
                 "-u",
                 &format!("{}.service", service),
