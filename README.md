@@ -2,6 +2,8 @@
 
 A fast terminal dashboard to launch, monitor, and manage apps, bookmarks, clipboard history, configuration files, Docker containers, Git repositories, network connections, SSH hosts, scripts, notifications, shell history, quick notes (scratchpad), and an embedded shell terminal. Built in Rust with ratatui.
 
+![launchr demo](launchr.gif)
+
 ### Build
 - Prerequisites: Rust stable, Cargo
 - Build: `cargo build --release`
