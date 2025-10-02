@@ -27,7 +27,7 @@ Tested on Linux/macOS/Windows. On Windows, run in a true terminal (Windows Termi
 - Scratchpad: `n` new note, `c` copy to clipboard, `e` export to path, `R` rename, `f` search notes, `t` toggle preview
 - Shell: `i` input command, `h` search history, `C` clear history
 - Services: `s` start, `S` stop, `r` restart, `E` enable, `D` disable, `l` logs, `u` toggle user/system, `f` filter, `t` details
-- Calculator: `` ` `` activate calculator mode, `0-9` digits, `+/-/*//^%` operators, `()` parentheses, `Enter` calculate, `Esc` exit, `m` toggle basic/scientific mode, `c/C` clear/clear all, `y` copy result, `↑↓` navigate history, `r` recall
+- Calculator: `` ` `` toggle typing mode, `←→↑↓` navigate buttons, `Enter/Space` press button, `m` toggle basic/scientific mode, `h` history view, `r` recall from history, `0-9` digits, `+/-/*//^%` operators, `()` parentheses, `c/C` clear/clear all, `y` copy result
 
 **Sections:** `1` Dashboard, `2` Apps, `3` Bookmarks, `4` Clipboard, `\` Configs, `5` Docker, `6` Network, `7` SSH, `8` Scripts, `9` Git, `0` History, `-` Scratchpad, `=` Shell, `]` Services, `` ` `` Calculator, `[` Notifications
 
@@ -46,7 +46,7 @@ Tested on Linux/macOS/Windows. On Windows, run in a true terminal (Windows Termi
 - **Scratchpad**: quick note-taking with auto-detection of your preferred editor (VSCode, Sublime, Notepad++, vim, etc.); search, rename, export, copy notes to clipboard
 - **Shell**: embedded minimal shell terminal with built-in commands (`cd`, `pwd`, `history`, etc.) and external command execution through your system shell
 - **Services**: manage system services (systemd/launchd/Windows Services); start/stop/restart, enable/disable, view logs, filter by state
-- **Calculator**: basic and scientific calculator with expression evaluation, calculation history, and result copying
+- **Calculator**: visual calculator with button navigation, basic and scientific modes, expression evaluation, calculation history, and result copying
 - **Notifications**: system-level notifications for actions
 - Context-aware fuzzy search `/` per section
 - Dynamic header: username, time, arch, detected shell, CPU cores and average usage
@@ -168,14 +168,16 @@ You can also add entries in-app:
 - Search services by name or description
 
 **Calculator Module**
+- Visual calculator interface with button navigation using arrow keys
 - Basic arithmetic: addition, subtraction, multiplication, division, exponentiation, modulo
 - Scientific functions: sin, cos, tan, sqrt, log, ln, exp, abs, reciprocal, square
 - Expression parsing with proper order of operations and parentheses support
-- Calculation history with timestamps
+- Calculation history with timestamps and recall functionality
 - Real-time expression evaluation as you type
 - Copy results to clipboard
-- Toggle between Basic and Scientific modes
-- Navigate and recall from calculation history
+- Toggle between Basic and Scientific modes with automatic scrolling for large layouts
+- Typing mode for direct expression input with visual button navigation
+- History view with dedicated panel toggle
 
 ### Notes
 - Uses `sysinfo` for processes, `which` for PATH resolution, and `crossterm`/`ratatui` for TUI.
