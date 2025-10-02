@@ -132,12 +132,37 @@ fn draw_menu(f: &mut Frame, app: &App, area: Rect) {
         })
         .collect();
 
-    let list = List::new(items).block(
-        Block::default()
-            .title("Menu (Tab/Shift+Tab)")
-            .borders(Borders::ALL)
-            .border_style(Style::default().fg(Color::White)),
-    );
+    // Find the index of the current section
+    let current_index = menu_items
+        .iter()
+        .position(|(_, _, section)| *section == app.current_section)
+        .unwrap_or(0);
+
+    // Calculate scroll position to keep selected item visible
+    let window_height = (area.height.saturating_sub(2)) as usize; // Account for borders
+    let menu_len = menu_items.len();
+    
+    let start = if menu_len <= window_height {
+        0
+    } else {
+        let half = window_height / 2;
+        let base = current_index.saturating_sub(half);
+        let max_start = menu_len.saturating_sub(window_height);
+        base.min(max_start)
+    };
+    
+    let end = (start + window_height).min(menu_len);
+    let visible_items = items[start..end].to_vec();
+
+    let list = List::new(visible_items)
+        .block(
+            Block::default()
+                .title("Menu (Tab/Shift+Tab)")
+                .borders(Borders::ALL)
+                .border_style(Style::default().fg(Color::White)),
+        )
+        .highlight_style(Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD))
+        .highlight_symbol("> ");
     f.render_widget(list, area);
 }
 
