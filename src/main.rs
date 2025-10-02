@@ -84,6 +84,13 @@ async fn run_app<B: ratatui::backend::Backend>(
                     KeyCode::Char('-') => app.current_section = MenuSection::Scratchpad,
                     KeyCode::Char('=') => app.current_section = MenuSection::Shell,
                     KeyCode::Char(']') => app.current_section = MenuSection::Services,
+                    KeyCode::Char('`') => {
+                        if app.current_section == MenuSection::Calculator {
+                            app.open_calculator();
+                        } else {
+                            app.current_section = MenuSection::Calculator;
+                        }
+                    }
                     KeyCode::Char('[') => app.current_section = MenuSection::Notifications,
                     KeyCode::Char('\\') => app.current_section = MenuSection::Configs,
                     KeyCode::Up | KeyCode::Char('k') => {
@@ -356,6 +363,78 @@ async fn run_app<B: ratatui::backend::Backend>(
                     KeyCode::Char(c) => app.shell_input_char(c),
                     KeyCode::Left => app.shell_input_move_left(),
                     KeyCode::Right => app.shell_input_move_right(),
+                    _ => {}
+                },
+                AppState::Calculator => match code {
+                    KeyCode::Esc => app.close_calculator(),
+                    KeyCode::Char(c @ '0'..='9') => app.calculator_input_digit(c),
+                    KeyCode::Char('.') => app.calculator_decimal(),
+                    KeyCode::Char('+') => app.calculator_input_operator("+"),
+                    KeyCode::Char('*') => app.calculator_input_operator("*"),
+                    KeyCode::Char('/') => app.calculator_input_operator("/"),
+                    KeyCode::Char('^') => app.calculator_input_operator("^"),
+                    KeyCode::Char('%') => app.calculator_input_operator("%"),
+                    KeyCode::Char('(') => {
+                        app.calculator_module.current_expression.push('(');
+                        app.calculator_module.update_result();
+                    }
+                    KeyCode::Char(')') => {
+                        app.calculator_module.current_expression.push(')');
+                        app.calculator_module.update_result();
+                    }
+                    KeyCode::Char('-') => app.calculator_input_operator("-"),
+                    KeyCode::Enter => app.calculator_calculate(),
+                    KeyCode::Backspace => app.calculator_backspace(),
+                    KeyCode::Char('c') if !modifiers.contains(KeyModifiers::SHIFT) => {
+                        app.calculator_clear();
+                    }
+                    KeyCode::Char('C') => app.calculator_clear_all(),
+                    KeyCode::Char('y') => {
+                        if let Err(e) = app.calculator_copy_result() {
+                            app.report_error("Copy failed", e);
+                        }
+                    }
+                    KeyCode::Char('m') => app.calculator_toggle_mode(),
+                    KeyCode::Up | KeyCode::Char('k') => app.calculator_prev_history(),
+                    KeyCode::Down | KeyCode::Char('j') => app.calculator_next_history(),
+                    KeyCode::Char('r') => app.calculator_recall_from_history(),
+                    // Scientific mode functions
+                    KeyCode::Char('s') if app.calculator_module.mode 
+                        == crate::modules::calculator::CalculatorMode::Scientific => {
+                        app.calculator_apply_function("sin");
+                    }
+                    KeyCode::Char('t') if app.calculator_module.mode 
+                        == crate::modules::calculator::CalculatorMode::Scientific => {
+                        app.calculator_apply_function("tan");
+                    }
+                    KeyCode::Char('q') if app.calculator_module.mode 
+                        == crate::modules::calculator::CalculatorMode::Scientific => {
+                        app.calculator_apply_function("sqrt");
+                    }
+                    KeyCode::Char('l') if app.calculator_module.mode 
+                        == crate::modules::calculator::CalculatorMode::Scientific => {
+                        app.calculator_apply_function("log");
+                    }
+                    KeyCode::Char('n') if app.calculator_module.mode 
+                        == crate::modules::calculator::CalculatorMode::Scientific => {
+                        app.calculator_apply_function("ln");
+                    }
+                    KeyCode::Char('e') if app.calculator_module.mode 
+                        == crate::modules::calculator::CalculatorMode::Scientific => {
+                        app.calculator_apply_function("exp");
+                    }
+                    KeyCode::Char('a') if app.calculator_module.mode 
+                        == crate::modules::calculator::CalculatorMode::Scientific => {
+                        app.calculator_apply_function("abs");
+                    }
+                    KeyCode::Char('i') if app.calculator_module.mode 
+                        == crate::modules::calculator::CalculatorMode::Scientific => {
+                        app.calculator_apply_function("1/x");
+                    }
+                    KeyCode::Char('x') if app.calculator_module.mode 
+                        == crate::modules::calculator::CalculatorMode::Scientific => {
+                        app.calculator_apply_function("x^2");
+                    }
                     _ => {}
                 },
             }

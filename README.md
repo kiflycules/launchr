@@ -1,6 +1,6 @@
 ## launchr
 
-A fast terminal dashboard to launch, monitor, and manage apps, bookmarks, clipboard history, configuration files, Docker containers, Git repositories, network connections, SSH hosts, scripts, notifications, shell history, quick notes (scratchpad), and an embedded shell terminal. Built in Rust with ratatui.
+A fast terminal dashboard to launch, monitor, and manage apps, bookmarks, clipboard history, configuration files, Docker containers, Git repositories, network connections, SSH hosts, scripts, notifications, shell history, quick notes (scratchpad), an embedded shell terminal, and a calculator. Built in Rust with ratatui.
 
 ![launchr demo](launchr.gif)
 
@@ -27,8 +27,9 @@ Tested on Linux/macOS/Windows. On Windows, run in a true terminal (Windows Termi
 - Scratchpad: `n` new note, `c` copy to clipboard, `e` export to path, `R` rename, `f` search notes, `t` toggle preview
 - Shell: `i` input command, `h` search history, `C` clear history
 - Services: `s` start, `S` stop, `r` restart, `E` enable, `D` disable, `l` logs, `u` toggle user/system, `f` filter, `t` details
+- Calculator: `` ` `` activate calculator mode, `0-9` digits, `+/-/*//^%` operators, `()` parentheses, `Enter` calculate, `Esc` exit, `m` toggle basic/scientific mode, `c/C` clear/clear all, `y` copy result, `↑↓` navigate history, `r` recall
 
-**Sections:** `1` Dashboard, `2` Apps, `3` Bookmarks, `4` Clipboard, `\` Configs, `5` Docker, `6` Network, `7` SSH, `8` Scripts, `9` Git, `0` History, `-` Scratchpad, `=` Shell, `]` Services, `[` Notifications
+**Sections:** `1` Dashboard, `2` Apps, `3` Bookmarks, `4` Clipboard, `\` Configs, `5` Docker, `6` Network, `7` SSH, `8` Scripts, `9` Git, `0` History, `-` Scratchpad, `=` Shell, `]` Services, `` ` `` Calculator, `[` Notifications
 
 ### Features
 - **Dashboard**: running processes (scrollable), active SSH sessions, recent notifications
@@ -45,6 +46,7 @@ Tested on Linux/macOS/Windows. On Windows, run in a true terminal (Windows Termi
 - **Scratchpad**: quick note-taking with auto-detection of your preferred editor (VSCode, Sublime, Notepad++, vim, etc.); search, rename, export, copy notes to clipboard
 - **Shell**: embedded minimal shell terminal with built-in commands (`cd`, `pwd`, `history`, etc.) and external command execution through your system shell
 - **Services**: manage system services (systemd/launchd/Windows Services); start/stop/restart, enable/disable, view logs, filter by state
+- **Calculator**: basic and scientific calculator with expression evaluation, calculation history, and result copying
 - **Notifications**: system-level notifications for actions
 - Context-aware fuzzy search `/` per section
 - Dynamic header: username, time, arch, detected shell, CPU cores and average usage
@@ -164,6 +166,16 @@ You can also add entries in-app:
 - Filter by state (running/stopped/failed) or toggle user/system scope
 - Displays state, PID, memory usage, enabled status, description, uptime
 - Search services by name or description
+
+**Calculator Module**
+- Basic arithmetic: addition, subtraction, multiplication, division, exponentiation, modulo
+- Scientific functions: sin, cos, tan, sqrt, log, ln, exp, abs, reciprocal, square
+- Expression parsing with proper order of operations and parentheses support
+- Calculation history with timestamps
+- Real-time expression evaluation as you type
+- Copy results to clipboard
+- Toggle between Basic and Scientific modes
+- Navigate and recall from calculation history
 
 ### Notes
 - Uses `sysinfo` for processes, `which` for PATH resolution, and `crossterm`/`ratatui` for TUI.

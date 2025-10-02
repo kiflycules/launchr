@@ -3,7 +3,7 @@ use std::time::{Duration, Instant};
 
 use crate::config::Config;
 use crate::modules::{
-    apps::AppsModule, bookmarks::BookmarksModule, clipboard::ClipboardModule,
+    apps::AppsModule, bookmarks::BookmarksModule, calculator::CalculatorModule, clipboard::ClipboardModule,
     configs::ConfigsModule, docker::DockerModule, git::GitModule, history::ShellHistoryModule,
     network::NetworkModule, notifications::NotificationsModule, scratchpad::ScratchpadModule,
     scripts::ScriptsModule, services::ServicesModule, shell::ShellModule, ssh::SSHModule,
@@ -26,6 +26,7 @@ pub enum MenuSection {
     Scratchpad,
     Shell,
     Services,
+    Calculator,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -35,6 +36,7 @@ pub enum AppState {
     Confirm,
     Search,
     ShellInput,
+    Calculator,
 }
 
 pub struct App {
@@ -81,6 +83,10 @@ pub struct App {
     // Scratchpad search
     pub scratchpad_search_query: String,
     pub scratchpad_search_results: Vec<usize>,
+
+    // Calculator
+    pub calculator_module: CalculatorModule,
+    pub calculator_history_selected: usize,
 }
 
 #[derive(Debug, Clone)]
@@ -113,6 +119,7 @@ impl App {
         )?;
         let shell_terminal_module = ShellModule::new()?;
         let services_module = ServicesModule::new();
+        let calculator_module = CalculatorModule::new();
 
         Ok(Self {
             current_section: MenuSection::Dashboard,
@@ -149,6 +156,8 @@ impl App {
             shell_input_cursor: 0,
             scratchpad_search_query: String::new(),
             scratchpad_search_results: Vec::new(),
+            calculator_module,
+            calculator_history_selected: 0,
         })
     }
 
@@ -606,7 +615,8 @@ impl App {
             MenuSection::History => MenuSection::Configs,
             MenuSection::Scratchpad => MenuSection::Shell,
             MenuSection::Shell => MenuSection::Services,
-            MenuSection::Services => MenuSection::Notifications,
+            MenuSection::Services => MenuSection::Calculator,
+            MenuSection::Calculator => MenuSection::Notifications,
             MenuSection::Notifications => MenuSection::Dashboard,
         };
         self.selected_index = 0;
@@ -628,7 +638,8 @@ impl App {
             MenuSection::Scratchpad => MenuSection::Configs,
             MenuSection::Shell => MenuSection::Scratchpad,
             MenuSection::Services => MenuSection::Shell,
-            MenuSection::Notifications => MenuSection::Services,
+            MenuSection::Calculator => MenuSection::Services,
+            MenuSection::Notifications => MenuSection::Calculator,
         };
         self.selected_index = 0;
     }
@@ -842,6 +853,7 @@ impl App {
             MenuSection::Scratchpad => self.scratchpad_module.notes.len(),
             MenuSection::Shell => 0, // Shell has its own UI, no list
             MenuSection::Services => self.services_module.services.len(),
+            MenuSection::Calculator => self.calculator_module.history.len(),
         }
     }
 
@@ -1184,6 +1196,19 @@ impl App {
                     }
                 }
             }
+            MenuSection::Calculator => {
+                for (i, entry) in self.calculator_module.history.iter().enumerate() {
+                    let label = format!("Calculation: {} = {}", entry.expression, entry.result);
+                    if let Some(score) = score_match(&label, &self.search_query) {
+                        results.push(SearchResult {
+                            section: MenuSection::Calculator,
+                            index: i,
+                            label,
+                            score,
+                        });
+                    }
+                }
+            }
         }
 
         if self.search_query.is_empty() {
@@ -1197,6 +1222,84 @@ impl App {
         }
         self.search_results = results;
         self.search_selected = 0;
+    }
+
+    // Calculator methods
+    pub fn calculator_input_digit(&mut self, digit: char) {
+        self.calculator_module.append_digit(digit);
+    }
+
+    pub fn calculator_input_operator(&mut self, op: &str) {
+        self.calculator_module.append_operator(op);
+    }
+
+    pub fn calculator_decimal(&mut self) {
+        self.calculator_module.append_decimal();
+    }
+
+    pub fn calculator_backspace(&mut self) {
+        self.calculator_module.backspace();
+    }
+
+    pub fn calculator_clear(&mut self) {
+        self.calculator_module.clear();
+    }
+
+    pub fn calculator_clear_all(&mut self) {
+        self.calculator_module.clear_all();
+        self.calculator_history_selected = 0;
+    }
+
+    pub fn calculator_calculate(&mut self) {
+        self.calculator_module.calculate();
+    }
+
+    pub fn calculator_apply_function(&mut self, func: &str) {
+        self.calculator_module.apply_function(func);
+    }
+
+    pub fn calculator_toggle_mode(&mut self) {
+        self.calculator_module.toggle_mode();
+    }
+
+    pub fn calculator_copy_result(&mut self) -> Result<()> {
+        if let Ok(result) = self.calculator_module.copy_result_to_clipboard() {
+            self.status_message = format!("Copied result: {}", result);
+            self.notifications_module
+                .push("Calculator", "Result copied to clipboard", "info");
+        }
+        Ok(())
+    }
+
+    pub fn calculator_next_history(&mut self) {
+        if !self.calculator_module.history.is_empty() {
+            self.calculator_history_selected = 
+                (self.calculator_history_selected + 1) % self.calculator_module.history.len();
+        }
+    }
+
+    pub fn calculator_prev_history(&mut self) {
+        if !self.calculator_module.history.is_empty() {
+            if self.calculator_history_selected == 0 {
+                self.calculator_history_selected = self.calculator_module.history.len() - 1;
+            } else {
+                self.calculator_history_selected -= 1;
+            }
+        }
+    }
+
+    pub fn calculator_recall_from_history(&mut self) {
+        self.calculator_module.recall_from_history(self.calculator_history_selected);
+    }
+
+    pub fn open_calculator(&mut self) {
+        self.state = AppState::Calculator;
+        self.status_message = "Calculator mode - type expressions or use scientific functions".to_string();
+    }
+
+    pub fn close_calculator(&mut self) {
+        self.state = AppState::Normal;
+        self.status_message = "Calculator closed".to_string();
     }
 }
 

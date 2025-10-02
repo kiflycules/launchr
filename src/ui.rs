@@ -44,6 +44,7 @@ pub fn draw(f: &mut Frame, app: &App) {
         MenuSection::Scratchpad => draw_scratchpad(f, app, main_chunks[1]),
         MenuSection::Shell => draw_shell(f, app, main_chunks[1]),
         MenuSection::Services => draw_services(f, app, main_chunks[1]),
+        MenuSection::Calculator => draw_calculator(f, app, main_chunks[1]),
     }
 
     draw_status(f, app, chunks[2]);
@@ -115,6 +116,7 @@ fn draw_menu(f: &mut Frame, app: &App, area: Rect) {
         ("-", "Scratchpad", MenuSection::Scratchpad),
         ("=", "Shell", MenuSection::Shell),
         ("]", "Services", MenuSection::Services),
+        ("`", "Calculator", MenuSection::Calculator),
         ("[", "Notifications", MenuSection::Notifications),
     ];
 
@@ -1088,6 +1090,7 @@ fn draw_status(f: &mut Frame, app: &App, area: Rect) {
             "/: Search | Enter: Jump | Esc: Close | ↑↓/PgUp/PgDn/Home/End: Navigate"
         }
         AppState::ShellInput => "Enter: Execute | Esc: Cancel | Type shell command",
+        AppState::Calculator => "Calculator Mode: Type expressions | Esc: Exit | Enter: Calculate",
     };
 
     let status = Paragraph::new(vec![
@@ -1769,5 +1772,172 @@ fn draw_configs(f: &mut Frame, app: &App, area: Rect) {
         )
         .block(Block::default().title("Info").borders(Borders::ALL));
         f.render_widget(help, chunks[1]);
+    }
+}
+
+fn draw_calculator(f: &mut Frame, app: &App, area: Rect) {
+    let chunks = Layout::default()
+        .direction(Direction::Horizontal)
+        .constraints([Constraint::Percentage(60), Constraint::Percentage(40)])
+        .split(area);
+
+    // Left side: Calculator display and buttons
+    let left_chunks = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints([
+            Constraint::Length(5),  // Display
+            Constraint::Length(3),  // Mode indicator
+            Constraint::Min(0),     // Buttons
+        ])
+        .split(chunks[0]);
+
+    // Display area
+    let display_text = vec![
+        Line::from(vec![
+            Span::styled("Expression: ", Style::default().fg(Color::Gray)),
+            Span::styled(
+                if app.calculator_module.current_expression.is_empty() {
+                    "0"
+                } else {
+                    &app.calculator_module.current_expression
+                },
+                Style::default().fg(Color::White),
+            ),
+        ]),
+        Line::from(vec![
+            Span::styled("Result: ", Style::default().fg(Color::Gray)),
+            Span::styled(
+                &app.calculator_module.current_result,
+                Style::default()
+                    .fg(Color::Green)
+                    .add_modifier(Modifier::BOLD),
+            ),
+        ]),
+    ];
+
+    let display_widget = if let Some(ref error) = app.calculator_module.error_message {
+        Paragraph::new(vec![
+            Line::from(Span::styled(error, Style::default().fg(Color::Red))),
+            Line::from(""),
+            Line::from(vec![
+                Span::styled("Expression: ", Style::default().fg(Color::Gray)),
+                Span::raw(&app.calculator_module.current_expression),
+            ]),
+        ])
+        .block(Block::default().title("Calculator Display").borders(Borders::ALL))
+    } else {
+        Paragraph::new(display_text)
+            .block(Block::default().title("Calculator Display").borders(Borders::ALL))
+    };
+
+    f.render_widget(display_widget, left_chunks[0]);
+
+    // Mode indicator
+    let mode_text = if app.state == crate::app::AppState::Calculator {
+        match app.calculator_module.mode {
+            crate::modules::calculator::CalculatorMode::Basic => "Calculator Mode: Basic (m to toggle, Esc to exit)",
+            crate::modules::calculator::CalculatorMode::Scientific => {
+                "Calculator Mode: Scientific (m to toggle, Esc to exit)"
+            }
+        }
+    } else {
+        match app.calculator_module.mode {
+            crate::modules::calculator::CalculatorMode::Basic => "Mode: Basic (press ` to activate)",
+            crate::modules::calculator::CalculatorMode::Scientific => {
+                "Mode: Scientific (press ` to activate)"
+            }
+        }
+    };
+    let mode_widget = Paragraph::new(mode_text)
+        .block(Block::default().borders(Borders::ALL))
+        .style(Style::default().fg(Color::Cyan));
+    f.render_widget(mode_widget, left_chunks[1]);
+
+    // Button reference guide
+    let button_text = if app.state == crate::app::AppState::Calculator {
+        match app.calculator_module.mode {
+            crate::modules::calculator::CalculatorMode::Basic => {
+                "Basic Operations (Calculator Mode):\n\
+                 0-9: Digits  |  .: Decimal  |  +: Add  |  -: Subtract\n\
+                 *: Multiply  |  /: Divide  |  ^: Power  |  %: Modulo\n\
+                 (: Open parenthesis  |  ): Close parenthesis\n\
+                 Enter: Calculate  |  Backspace: Delete  |  c: Clear  |  C: Clear All\n\
+                 y: Copy result  |  m: Toggle mode  |  ↑↓: Navigate history  |  r: Recall\n\
+                 Esc: Exit Calculator Mode"
+            }
+            crate::modules::calculator::CalculatorMode::Scientific => {
+                "Scientific Functions (Calculator Mode):\n\
+                 0-9: Digits  |  .: Decimal  |  +,-,*,/,^,%: Operators  |  (): Parentheses\n\
+                 s: sin  |  c: cos  |  t: tan  |  q: sqrt  |  l: log  |  n: ln\n\
+                 e: exp  |  a: abs  |  i: 1/x  |  x: x^2\n\
+                 Enter: Calculate  |  Backspace: Delete  |  c: Clear  |  C: Clear All\n\
+                 y: Copy result  |  m: Toggle mode  |  ↑↓: Navigate history  |  r: Recall\n\
+                 Esc: Exit Calculator Mode"
+            }
+        }
+    } else {
+        "Press ` to activate Calculator Mode\n\nWhen active:\n\
+         0-9: Input digits  |  +,-,*,/,^,%: Operators\n\
+         (): Parentheses  |  Enter: Calculate  |  Esc: Exit"
+    };
+
+    let buttons_widget = Paragraph::new(button_text)
+        .block(
+            Block::default()
+                .title("Controls")
+                .borders(Borders::ALL),
+        )
+        .wrap(Wrap { trim: false });
+    f.render_widget(buttons_widget, left_chunks[2]);
+
+    // Right side: Calculation history
+    let history_items: Vec<ListItem> = app
+        .calculator_module
+        .history
+        .iter()
+        .rev()
+        .enumerate()
+        .map(|(i, entry)| {
+            let actual_index = app.calculator_module.history.len() - 1 - i;
+            let style = if actual_index == app.calculator_history_selected {
+                Style::default()
+                    .fg(Color::Yellow)
+                    .add_modifier(Modifier::BOLD)
+            } else {
+                Style::default()
+            };
+
+            ListItem::new(vec![
+                Line::from(vec![
+                    Span::styled(
+                        entry.timestamp.format("[%H:%M:%S] ").to_string(),
+                        Style::default().fg(Color::Gray),
+                    ),
+                    Span::raw(&entry.expression),
+                ]),
+                Line::from(vec![
+                    Span::styled("  = ", Style::default().fg(Color::Gray)),
+                    Span::styled(&entry.result, Style::default().fg(Color::Green)),
+                ]),
+            ])
+            .style(style)
+        })
+        .collect();
+
+    if history_items.is_empty() {
+        let empty_widget = Paragraph::new("No calculations yet\n\nStart typing numbers and operators")
+            .block(
+                Block::default()
+                    .title("History")
+                    .borders(Borders::ALL),
+            );
+        f.render_widget(empty_widget, chunks[1]);
+    } else {
+        let list = List::new(history_items).block(
+            Block::default()
+                .title("History (↑↓: navigate, r: recall)")
+                .borders(Borders::ALL),
+        );
+        f.render_widget(list, chunks[1]);
     }
 }
