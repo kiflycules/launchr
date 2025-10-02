@@ -16,7 +16,7 @@ Tested on Linux/macOS/Windows. On Windows, run in a true terminal (Windows Termi
 - Help: `?` toggle help overlay
 - Apps: `Enter` launch, `s` stop process (also from Dashboard)
 - Clipboard: `Enter` copy to clipboard, `p` pin/unpin entry
-- Configs: `Enter` open in editor, `b` backup, `v` view (scrollable), `c` copy, `o` open folder, `f` search
+- Configs: `Enter` open in editor, `b` backup, `v` view (scrollable with syntax highlighting), `c` copy, `o` open folder, `f` search
 - Docker: `Enter` exec into container, `v` switch view (containers/images), `a` toggle show all
 - Network: `v` switch view (connections/interfaces/ports), `f` filter connections by state
 - SSH: `x` disconnect latest session (terminates the ssh process)
@@ -107,7 +107,8 @@ You can also add entries in-app:
 - Track and manage configuration files with categories and descriptions
 - Open configs in editor (respects $EDITOR or custom per-config editor)
 - Create timestamped backups of config files
-- Preview config contents (scrollable with ↑↓, Esc to exit)
+- Preview config contents with syntax highlighting (scrollable with ↑↓, Esc to exit)
+- Syntax highlighting for JSON, YAML, TOML, INI, bash, SSH, Git, Docker, and more
 - Copy config contents to clipboard
 - Open config directory in file manager
 - Search configs by name, path, category, or description
