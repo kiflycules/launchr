@@ -156,6 +156,11 @@ impl App {
         let max = self.get_current_list_len();
         if max > 0 {
             self.selected_index = (self.selected_index + 1) % max;
+            
+            // Clear preview when navigating to different config
+            if self.current_section == MenuSection::Configs {
+                self.configs_module.exit_preview_mode();
+            }
         }
     }
 
@@ -167,6 +172,11 @@ impl App {
             } else {
                 self.selected_index - 1
             };
+            
+            // Clear preview when navigating to different config
+            if self.current_section == MenuSection::Configs {
+                self.configs_module.exit_preview_mode();
+            }
         }
     }
 
@@ -581,14 +591,14 @@ impl App {
             MenuSection::Dashboard => MenuSection::Apps,
             MenuSection::Apps => MenuSection::Bookmarks,
             MenuSection::Bookmarks => MenuSection::Clipboard,
-            MenuSection::Clipboard => MenuSection::Configs,
-            MenuSection::Configs => MenuSection::Docker,
+            MenuSection::Clipboard => MenuSection::Docker,
+            MenuSection::Configs => MenuSection::Scratchpad,
             MenuSection::Docker => MenuSection::Network,
             MenuSection::Network => MenuSection::Ssh,
             MenuSection::Ssh => MenuSection::Scripts,
             MenuSection::Scripts => MenuSection::Git,
             MenuSection::Git => MenuSection::History,
-            MenuSection::History => MenuSection::Scratchpad,
+            MenuSection::History => MenuSection::Configs,
             MenuSection::Scratchpad => MenuSection::Shell,
             MenuSection::Shell => MenuSection::Services,
             MenuSection::Services => MenuSection::Notifications,
@@ -603,14 +613,14 @@ impl App {
             MenuSection::Apps => MenuSection::Dashboard,
             MenuSection::Bookmarks => MenuSection::Apps,
             MenuSection::Clipboard => MenuSection::Bookmarks,
-            MenuSection::Configs => MenuSection::Clipboard,
-            MenuSection::Docker => MenuSection::Configs,
+            MenuSection::Configs => MenuSection::History,
+            MenuSection::Docker => MenuSection::Clipboard,
             MenuSection::Network => MenuSection::Docker,
             MenuSection::Ssh => MenuSection::Network,
             MenuSection::Scripts => MenuSection::Ssh,
             MenuSection::Git => MenuSection::Scripts,
             MenuSection::History => MenuSection::Git,
-            MenuSection::Scratchpad => MenuSection::History,
+            MenuSection::Scratchpad => MenuSection::Configs,
             MenuSection::Shell => MenuSection::Scratchpad,
             MenuSection::Services => MenuSection::Shell,
             MenuSection::Notifications => MenuSection::Services,
@@ -1391,7 +1401,10 @@ impl App {
     pub fn view_selected_config(&mut self) -> Result<()> {
         if self.current_section == MenuSection::Configs
             && let Ok(content) = self.configs_module.view_config(self.selected_index) {
-                self.status_message = format!("Preview: {} lines", content.lines().count());
+                let total = content.lines().count();
+                self.status_message = format!("Preview: {} lines", total);
+                // Store the preview content for the info panel
+                self.configs_module.set_preview_content(content);
             }
         Ok(())
     }

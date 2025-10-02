@@ -1646,6 +1646,30 @@ fn draw_configs(f: &mut Frame, app: &App, area: Rect) {
             )
             .wrap(Wrap { trim: false });
         f.render_widget(detail, chunks[1]);
+    } else if let Some(ref preview) = app.configs_module.preview_content {
+        let lines: Vec<&str> = preview.lines().collect();
+        let scroll_pos = app.configs_module.preview_scroll;
+        
+        // Show lines starting from scroll position, limited by available height
+        let available_height = chunks[1].height.saturating_sub(2); // Account for borders
+        let end_line = (scroll_pos + available_height as usize).min(lines.len());
+        let visible_lines = if scroll_pos < lines.len() {
+            lines[scroll_pos..end_line].join("\n")
+        } else {
+            String::new()
+        };
+        
+        let scroll_info = if lines.len() > available_height as usize {
+            format!("Preview ({} of {} lines, ↑↓ to scroll, Esc to exit, v to refresh)", 
+                   scroll_pos + 1, lines.len())
+        } else {
+            "Preview (Esc to exit, v to refresh)".to_string()
+        };
+        
+        let preview_para = Paragraph::new(visible_lines)
+            .block(Block::default().title(scroll_info).borders(Borders::ALL))
+            .wrap(Wrap { trim: false });
+        f.render_widget(preview_para, chunks[1]);
     } else {
         let help = Paragraph::new(
             "Press 't' to toggle config details\nPress 'v' to preview config content",

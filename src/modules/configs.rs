@@ -22,6 +22,9 @@ pub struct ConfigEntry {
 pub struct ConfigsModule {
     pub configs: Vec<ConfigEntry>,
     config_file: PathBuf,
+    pub preview_content: Option<String>,
+    pub preview_scroll: usize,
+    pub preview_mode: bool,
 }
 
 impl ConfigsModule {
@@ -37,6 +40,9 @@ impl ConfigsModule {
         let mut module = Self {
             configs: Vec::new(),
             config_file,
+            preview_content: None,
+            preview_scroll: 0,
+            preview_mode: false,
         };
 
         module.load()?;
@@ -424,6 +430,33 @@ impl ConfigsModule {
             format!("{:.2} KB", size as f64 / KB as f64)
         } else {
             format!("{} B", size)
+        }
+    }
+
+    pub fn set_preview_content(&mut self, content: String) {
+        self.preview_content = Some(content);
+        self.preview_scroll = 0; // Reset scroll when new content is set
+        self.preview_mode = true; // Enter preview mode when content is set
+    }
+
+    pub fn exit_preview_mode(&mut self) {
+        self.preview_mode = false;
+        self.preview_content = None;
+        self.preview_scroll = 0;
+    }
+
+    pub fn scroll_preview_up(&mut self) {
+        if self.preview_scroll > 0 {
+            self.preview_scroll = self.preview_scroll.saturating_sub(1);
+        }
+    }
+
+    pub fn scroll_preview_down(&mut self) {
+        if let Some(ref content) = self.preview_content {
+            let lines: Vec<&str> = content.lines().collect();
+            if self.preview_scroll < lines.len().saturating_sub(1) {
+                self.preview_scroll += 1;
+            }
         }
     }
 }

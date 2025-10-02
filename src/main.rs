@@ -86,8 +86,20 @@ async fn run_app<B: ratatui::backend::Backend>(
                         KeyCode::Char(']') => app.current_section = MenuSection::Services,
                         KeyCode::Char('[') => app.current_section = MenuSection::Notifications,
                         KeyCode::Char('\\') => app.current_section = MenuSection::Configs,
-                        KeyCode::Up | KeyCode::Char('k') => app.previous_item(),
-                        KeyCode::Down | KeyCode::Char('j') => app.next_item(),
+                        KeyCode::Up | KeyCode::Char('k') => {
+                            if app.current_section == MenuSection::Configs && app.configs_module.preview_mode {
+                                app.configs_module.scroll_preview_up();
+                            } else {
+                                app.previous_item();
+                            }
+                        },
+                        KeyCode::Down | KeyCode::Char('j') => {
+                            if app.current_section == MenuSection::Configs && app.configs_module.preview_mode {
+                                app.configs_module.scroll_preview_down();
+                            } else {
+                                app.next_item();
+                            }
+                        },
                         KeyCode::PageUp => app.page_up(),
                         KeyCode::PageDown => app.page_down(),
                         KeyCode::Home => app.go_home(),
@@ -257,7 +269,13 @@ async fn run_app<B: ratatui::backend::Backend>(
                         }
                         KeyCode::Tab => app.next_section(),
                         KeyCode::BackTab => app.previous_section(),
-                        KeyCode::Esc => app.cancel_input(),
+                        KeyCode::Esc => {
+                            if app.current_section == MenuSection::Configs && app.configs_module.preview_mode {
+                                app.configs_module.exit_preview_mode();
+                            } else {
+                                app.cancel_input();
+                            }
+                        },
                         _ => {}
                     },
                     AppState::Input => match code {
