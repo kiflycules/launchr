@@ -1090,7 +1090,12 @@ fn draw_status(f: &mut Frame, app: &App, area: Rect) {
             "/: Search | Enter: Jump | Esc: Close | ↑↓/PgUp/PgDn/Home/End: Navigate"
         }
         AppState::ShellInput => "Enter: Execute | Esc: Cancel | Type shell command",
-        AppState::Calculator => "Calculator Mode: Type expressions | Esc: Exit | Enter: Calculate",
+        AppState::Calculator => {
+            match app.calculator_module.mode {
+                crate::modules::calculator::CalculatorMode::Basic => "Calculator Mode: Basic (m: toggle mode, h: history, Esc: exit, ←→↑↓: navigate buttons)",
+                crate::modules::calculator::CalculatorMode::Scientific => "Calculator Mode: Scientific (m: toggle mode, h: history, Esc: exit, ←→↑↓: navigate buttons)",
+            }
+        },
     };
 
     let status = Paragraph::new(vec![
@@ -1776,20 +1781,32 @@ fn draw_configs(f: &mut Frame, app: &App, area: Rect) {
 }
 
 fn draw_calculator(f: &mut Frame, app: &App, area: Rect) {
-    let chunks = Layout::default()
-        .direction(Direction::Horizontal)
-        .constraints([Constraint::Percentage(60), Constraint::Percentage(40)])
-        .split(area);
+    let chunks = if app.calculator_show_history {
+        Layout::default()
+            .direction(Direction::Horizontal)
+            .constraints([Constraint::Percentage(70), Constraint::Percentage(30)])
+            .split(area)
+    } else {
+        Layout::default()
+            .direction(Direction::Horizontal)
+            .constraints([Constraint::Percentage(100)])
+            .split(area)
+    };
 
-    // Left side: Calculator display and buttons
+    // Calculator area
+    let calc_area = if app.calculator_show_history {
+        chunks[0]
+    } else {
+        chunks[0]
+    };
+
     let left_chunks = Layout::default()
         .direction(Direction::Vertical)
         .constraints([
             Constraint::Length(5),  // Display
-            Constraint::Length(3),  // Mode indicator
-            Constraint::Min(0),     // Buttons
+            Constraint::Min(0),     // Button grid
         ])
-        .split(chunks[0]);
+        .split(calc_area);
 
     // Display area
     let display_text = vec![
@@ -1832,112 +1849,154 @@ fn draw_calculator(f: &mut Frame, app: &App, area: Rect) {
 
     f.render_widget(display_widget, left_chunks[0]);
 
-    // Mode indicator
-    let mode_text = if app.state == crate::app::AppState::Calculator {
-        match app.calculator_module.mode {
-            crate::modules::calculator::CalculatorMode::Basic => "Calculator Mode: Basic (m to toggle, Esc to exit)",
-            crate::modules::calculator::CalculatorMode::Scientific => {
-                "Calculator Mode: Scientific (m to toggle, Esc to exit)"
-            }
-        }
-    } else {
-        match app.calculator_module.mode {
-            crate::modules::calculator::CalculatorMode::Basic => "Mode: Basic (press ` to activate)",
-            crate::modules::calculator::CalculatorMode::Scientific => {
-                "Mode: Scientific (press ` to activate)"
-            }
-        }
-    };
-    let mode_widget = Paragraph::new(mode_text)
-        .block(Block::default().borders(Borders::ALL))
-        .style(Style::default().fg(Color::Cyan));
-    f.render_widget(mode_widget, left_chunks[1]);
+    // Button grid
+    draw_calculator_buttons(f, app, left_chunks[1]);
 
-    // Button reference guide
-    let button_text = if app.state == crate::app::AppState::Calculator {
-        match app.calculator_module.mode {
-            crate::modules::calculator::CalculatorMode::Basic => {
-                "Basic Operations (Calculator Mode):\n\
-                 0-9: Digits  |  .: Decimal  |  +: Add  |  -: Subtract\n\
-                 *: Multiply  |  /: Divide  |  ^: Power  |  %: Modulo\n\
-                 (: Open parenthesis  |  ): Close parenthesis\n\
-                 Enter: Calculate  |  Backspace: Delete  |  c: Clear  |  C: Clear All\n\
-                 y: Copy result  |  m: Toggle mode  |  ↑↓: Navigate history  |  r: Recall\n\
-                 Esc: Exit Calculator Mode"
-            }
-            crate::modules::calculator::CalculatorMode::Scientific => {
-                "Scientific Functions (Calculator Mode):\n\
-                 0-9: Digits  |  .: Decimal  |  +,-,*,/,^,%: Operators  |  (): Parentheses\n\
-                 s: sin  |  c: cos  |  t: tan  |  q: sqrt  |  l: log  |  n: ln\n\
-                 e: exp  |  a: abs  |  i: 1/x  |  x: x^2\n\
-                 Enter: Calculate  |  Backspace: Delete  |  c: Clear  |  C: Clear All\n\
-                 y: Copy result  |  m: Toggle mode  |  ↑↓: Navigate history  |  r: Recall\n\
-                 Esc: Exit Calculator Mode"
-            }
-        }
-    } else {
-        "Press ` to activate Calculator Mode\n\nWhen active:\n\
-         0-9: Input digits  |  +,-,*,/,^,%: Operators\n\
-         (): Parentheses  |  Enter: Calculate  |  Esc: Exit"
-    };
+    // History panel (only show when calculator_show_history is true)
+    if app.calculator_show_history && chunks.len() > 1 {
+        let history_items: Vec<ListItem> = app
+            .calculator_module
+            .history
+            .iter()
+            .rev()
+            .enumerate()
+            .map(|(i, entry)| {
+                let actual_index = app.calculator_module.history.len() - 1 - i;
+                let style = if actual_index == app.calculator_history_selected {
+                    Style::default()
+                        .fg(Color::Yellow)
+                        .add_modifier(Modifier::BOLD)
+                } else {
+                    Style::default()
+                };
 
-    let buttons_widget = Paragraph::new(button_text)
-        .block(
-            Block::default()
-                .title("Controls")
-                .borders(Borders::ALL),
-        )
-        .wrap(Wrap { trim: false });
-    f.render_widget(buttons_widget, left_chunks[2]);
+                ListItem::new(vec![
+                    Line::from(vec![
+                        Span::styled(
+                            entry.timestamp.format("[%H:%M:%S] ").to_string(),
+                            Style::default().fg(Color::Gray),
+                        ),
+                        Span::raw(&entry.expression),
+                    ]),
+                    Line::from(vec![
+                        Span::styled("  = ", Style::default().fg(Color::Gray)),
+                        Span::styled(&entry.result, Style::default().fg(Color::Green)),
+                    ]),
+                ])
+                .style(style)
+            })
+            .collect();
 
-    // Right side: Calculation history
-    let history_items: Vec<ListItem> = app
-        .calculator_module
-        .history
-        .iter()
-        .rev()
-        .enumerate()
-        .map(|(i, entry)| {
-            let actual_index = app.calculator_module.history.len() - 1 - i;
-            let style = if actual_index == app.calculator_history_selected {
-                Style::default()
-                    .fg(Color::Yellow)
-                    .add_modifier(Modifier::BOLD)
-            } else {
-                Style::default()
-            };
-
-            ListItem::new(vec![
-                Line::from(vec![
-                    Span::styled(
-                        entry.timestamp.format("[%H:%M:%S] ").to_string(),
-                        Style::default().fg(Color::Gray),
-                    ),
-                    Span::raw(&entry.expression),
-                ]),
-                Line::from(vec![
-                    Span::styled("  = ", Style::default().fg(Color::Gray)),
-                    Span::styled(&entry.result, Style::default().fg(Color::Green)),
-                ]),
-            ])
-            .style(style)
-        })
-        .collect();
-
-    if history_items.is_empty() {
-        let empty_widget = Paragraph::new("No calculations yet\n\nStart typing numbers and operators")
-            .block(
+        if history_items.is_empty() {
+            let empty_widget = Paragraph::new("No calculations yet\n\nPress h to toggle back to calculator\n\nUse ↑↓ to navigate history\nPress r to recall selected entry")
+                .block(
+                    Block::default()
+                        .title("History")
+                        .borders(Borders::ALL),
+                );
+            f.render_widget(empty_widget, chunks[1]);
+        } else {
+            let list = List::new(history_items).block(
                 Block::default()
-                    .title("History")
+                    .title("History (h: back to calc, ↑↓: navigate, r: recall)")
                     .borders(Borders::ALL),
             );
-        f.render_widget(empty_widget, chunks[1]);
-    } else {
-        let list = List::new(history_items).block(
-            Block::default()
-                .title("History (↑↓: navigate, r: recall)")
-                .borders(Borders::ALL),
-        );
-        f.render_widget(list, chunks[1]);
+            f.render_widget(list, chunks[1]);
+        }
+    }
+}
+
+fn draw_calculator_buttons(f: &mut Frame, app: &App, area: Rect) {
+    // Define button layout based on mode
+    let buttons = match app.calculator_module.mode {
+        crate::modules::calculator::CalculatorMode::Basic => vec![
+            vec![("C", "c"), ("CE", "C"), ("⌫", "bksp"), ("÷", "/")],
+            vec![("7", "7"), ("8", "8"), ("9", "9"), ("×", "*")],
+            vec![("4", "4"), ("5", "5"), ("6", "6"), ("−", "-")],
+            vec![("1", "1"), ("2", "2"), ("3", "3"), ("+", "+")],
+            vec![("(", "("), ("0", "0"), (")", ")"), (".", ".")],
+            vec![("^", "^"), ("%", "%"), ("=", "enter"), ("Copy", "y")],
+        ],
+        crate::modules::calculator::CalculatorMode::Scientific => vec![
+            vec![("C", "c"), ("CE", "C"), ("⌫", "bksp"), ("÷", "/")],
+            vec![("sin", "s"), ("cos", "c"), ("tan", "t"), ("×", "*")],
+            vec![("√", "q"), ("log", "l"), ("ln", "n"), ("−", "-")],
+            vec![("7", "7"), ("8", "8"), ("9", "9"), ("+", "+")],
+            vec![("4", "4"), ("5", "5"), ("6", "6"), ("^", "^")],
+            vec![("1", "1"), ("2", "2"), ("3", "3"), ("%", "%")],
+            vec![("exp", "e"), ("0", "0"), (".", "."), ("=", "enter")],
+            vec![("abs", "a"), ("1/x", "i"), ("x²", "x"), ("Copy", "y")],
+        ],
+    };
+
+    let num_rows = buttons.len();
+    let row_height = std::cmp::max(5, (area.height.saturating_sub(2)) / num_rows as u16);
+
+    // Create vertical layout for rows
+    let row_constraints = vec![Constraint::Length(row_height); num_rows];
+    let rows = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints(row_constraints)
+        .split(Rect {
+            x: area.x + 1,
+            y: area.y + 1,
+            width: area.width.saturating_sub(2),
+            height: area.height.saturating_sub(2),
+        });
+
+    // Draw border
+    let border = Block::default()
+        .title("Calculator Buttons (←→↑↓: navigate, Enter/Space: press)")
+        .borders(Borders::ALL);
+    f.render_widget(border, area);
+
+    // Draw each row of buttons
+    for (row_idx, row_buttons) in buttons.iter().enumerate() {
+        let num_cols = row_buttons.len();
+        let col_width = std::cmp::max(10, rows[row_idx].width / num_cols as u16);
+        
+        let cols = Layout::default()
+            .direction(Direction::Horizontal)
+            .constraints(vec![Constraint::Length(col_width); num_cols])
+            .split(rows[row_idx]);
+
+        for (col_idx, (label, _key)) in row_buttons.iter().enumerate() {
+            // Check if this button is selected
+            let is_selected = if let Some((sel_row, sel_col)) = app.calculator_button_position {
+                sel_row == row_idx && sel_col == col_idx
+            } else {
+                false
+            };
+
+            let style = if is_selected {
+                Style::default()
+                    .fg(Color::Black)
+                    .bg(Color::Yellow)
+                    .add_modifier(Modifier::BOLD)
+            } else {
+                // Color coding: operators in cyan, numbers in white, special in magenta
+                let fg_color = if "+-*/^%".contains(*label) || *label == "×" || *label == "÷" || *label == "−" {
+                    Color::Cyan
+                } else if label.chars().all(|c| c.is_numeric()) || *label == "." {
+                    Color::White
+                } else if *label == "=" {
+                    Color::Green
+                } else if *label == "C" || *label == "CE" || *label == "⌫" {
+                    Color::Red
+                } else {
+                    Color::Magenta
+                };
+                
+                Style::default().fg(fg_color)
+            };
+
+            let button_text = format!("{}", label);
+            let button = Paragraph::new(button_text)
+                .style(style)
+                .alignment(ratatui::layout::Alignment::Center)
+                .block(Block::default().borders(Borders::ALL));
+            
+            f.render_widget(button, cols[col_idx]);
+        }
     }
 }

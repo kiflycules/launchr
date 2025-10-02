@@ -367,6 +367,19 @@ async fn run_app<B: ratatui::backend::Backend>(
                 },
                 AppState::Calculator => match code {
                     KeyCode::Esc => app.close_calculator(),
+                    KeyCode::Up => app.calculator_button_up(),
+                    KeyCode::Down => app.calculator_button_down(),
+                    KeyCode::Left => app.calculator_button_left(),
+                    KeyCode::Right => app.calculator_button_right(),
+                    KeyCode::Enter | KeyCode::Char(' ') => app.calculator_press_button(),
+                    KeyCode::Char('m') => {
+                        app.calculator_toggle_mode();
+                        // Reset button position to first button when changing modes
+                        app.calculator_button_position = Some((0, 0));
+                    }
+                    KeyCode::Char('r') => app.calculator_recall_from_history(),
+                    KeyCode::Char('h') => app.calculator_toggle_history(),
+                    // Direct key input still works
                     KeyCode::Char(c @ '0'..='9') => app.calculator_input_digit(c),
                     KeyCode::Char('.') => app.calculator_decimal(),
                     KeyCode::Char('+') => app.calculator_input_operator("+"),
@@ -383,7 +396,6 @@ async fn run_app<B: ratatui::backend::Backend>(
                         app.calculator_module.update_result();
                     }
                     KeyCode::Char('-') => app.calculator_input_operator("-"),
-                    KeyCode::Enter => app.calculator_calculate(),
                     KeyCode::Backspace => app.calculator_backspace(),
                     KeyCode::Char('c') if !modifiers.contains(KeyModifiers::SHIFT) => {
                         app.calculator_clear();
@@ -394,10 +406,8 @@ async fn run_app<B: ratatui::backend::Backend>(
                             app.report_error("Copy failed", e);
                         }
                     }
-                    KeyCode::Char('m') => app.calculator_toggle_mode(),
-                    KeyCode::Up | KeyCode::Char('k') => app.calculator_prev_history(),
-                    KeyCode::Down | KeyCode::Char('j') => app.calculator_next_history(),
-                    KeyCode::Char('r') => app.calculator_recall_from_history(),
+                    KeyCode::Char('k') => app.calculator_prev_history(),
+                    KeyCode::Char('j') => app.calculator_next_history(),
                     // Scientific mode functions
                     KeyCode::Char('s') if app.calculator_module.mode 
                         == crate::modules::calculator::CalculatorMode::Scientific => {

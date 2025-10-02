@@ -87,6 +87,8 @@ pub struct App {
     // Calculator
     pub calculator_module: CalculatorModule,
     pub calculator_history_selected: usize,
+    pub calculator_button_position: Option<(usize, usize)>, // (row, col)
+    pub calculator_show_history: bool, // toggle between calculator and history view
 }
 
 #[derive(Debug, Clone)]
@@ -158,6 +160,8 @@ impl App {
             scratchpad_search_results: Vec::new(),
             calculator_module,
             calculator_history_selected: 0,
+            calculator_button_position: Some((0, 0)),
+            calculator_show_history: false,
         })
     }
 
@@ -1300,6 +1304,120 @@ impl App {
     pub fn close_calculator(&mut self) {
         self.state = AppState::Normal;
         self.status_message = "Calculator closed".to_string();
+    }
+
+    pub fn calculator_toggle_history(&mut self) {
+        self.calculator_show_history = !self.calculator_show_history;
+        if self.calculator_show_history {
+            self.status_message = "Calculator history view - press h to toggle back to calculator".to_string();
+        } else {
+            self.status_message = "Calculator mode - type expressions or use scientific functions".to_string();
+        }
+    }
+
+    pub fn calculator_button_up(&mut self) {
+        if let Some((row, col)) = self.calculator_button_position {
+            if row > 0 {
+                self.calculator_button_position = Some((row - 1, col));
+            }
+        }
+    }
+
+    pub fn calculator_button_down(&mut self) {
+        if let Some((row, col)) = self.calculator_button_position {
+            let buttons = self.get_calculator_buttons();
+            if row < buttons.len() - 1 {
+                self.calculator_button_position = Some((row + 1, col));
+            }
+        }
+    }
+
+    pub fn calculator_button_left(&mut self) {
+        if let Some((row, col)) = self.calculator_button_position {
+            if col > 0 {
+                self.calculator_button_position = Some((row, col - 1));
+            }
+        }
+    }
+
+    pub fn calculator_button_right(&mut self) {
+        if let Some((row, col)) = self.calculator_button_position {
+            let buttons = self.get_calculator_buttons();
+            if col < buttons[row].len() - 1 {
+                self.calculator_button_position = Some((row, col + 1));
+            }
+        }
+    }
+
+    pub fn calculator_press_button(&mut self) {
+        if let Some((row, col)) = self.calculator_button_position {
+            let buttons = self.get_calculator_buttons();
+            if let Some((_, key)) = buttons[row].get(col) {
+                match *key {
+                    "0" | "1" | "2" | "3" | "4" | "5" | "6" | "7" | "8" | "9" => {
+                        self.calculator_input_digit(key.chars().next().unwrap())
+                    }
+                    "+" => self.calculator_input_operator("+"),
+                    "-" => self.calculator_input_operator("-"),
+                    "*" => self.calculator_input_operator("*"),
+                    "/" => self.calculator_input_operator("/"),
+                    "^" => self.calculator_input_operator("^"),
+                    "%" => self.calculator_input_operator("%"),
+                    "(" => {
+                        self.calculator_module.current_expression.push('(');
+                        self.calculator_module.update_result();
+                    }
+                    ")" => {
+                        self.calculator_module.current_expression.push(')');
+                        self.calculator_module.update_result();
+                    }
+                    "." => self.calculator_decimal(),
+                    "enter" => self.calculator_calculate(),
+                    "bksp" => self.calculator_backspace(),
+                    "c" => self.calculator_clear(),
+                    "C" => self.calculator_clear_all(),
+                    "y" => {
+                        if let Err(e) = self.calculator_copy_result() {
+                            self.report_error("Copy failed", e);
+                        }
+                    }
+                    // Scientific functions
+                    "s" => self.calculator_apply_function("sin"),
+                    "t" => self.calculator_apply_function("tan"),
+                    "q" => self.calculator_apply_function("sqrt"),
+                    "l" => self.calculator_apply_function("log"),
+                    "n" => self.calculator_apply_function("ln"),
+                    "e" => self.calculator_apply_function("exp"),
+                    "a" => self.calculator_apply_function("abs"),
+                    "i" => self.calculator_apply_function("1/x"),
+                    "x" => self.calculator_apply_function("x^2"),
+                    _ => {}
+                }
+            }
+        }
+    }
+
+    fn get_calculator_buttons(&self) -> Vec<Vec<(&'static str, &'static str)>> {
+        match self.calculator_module.mode {
+            crate::modules::calculator::CalculatorMode::Basic => vec![
+                vec![("C", "c"), ("CE", "C"), ("⌫", "bksp"), ("÷", "/")],
+                vec![("7", "7"), ("8", "8"), ("9", "9"), ("×", "*")],
+                vec![("4", "4"), ("5", "5"), ("6", "6"), ("−", "-")],
+                vec![("1", "1"), ("2", "2"), ("3", "3"), ("+", "+")],
+                vec![("(", "("), ("0", "0"), (")", ")"), (".", ".")],
+                vec![("^", "^"), ("%", "%"), ("=", "enter"), ("Copy", "y")],
+            ],
+            crate::modules::calculator::CalculatorMode::Scientific => vec![
+                vec![("C", "c"), ("CE", "C"), ("⌫", "bksp"), ("÷", "/")],
+                vec![("sin", "s"), ("cos", "c"), ("tan", "t"), ("×", "*")],
+                vec![("√", "q"), ("log", "l"), ("ln", "n"), ("−", "-")],
+                vec![("7", "7"), ("8", "8"), ("9", "9"), ("+", "+")],
+                vec![("4", "4"), ("5", "5"), ("6", "6"), ("^", "^")],
+                vec![("1", "1"), ("2", "2"), ("3", "3"), ("%", "%")],
+                vec![("exp", "e"), ("0", "0"), (".", "."), ("=", "enter")],
+                vec![("abs", "a"), ("1/x", "i"), ("x²", "x"), ("Copy", "y")],
+            ],
+        }
     }
 }
 
