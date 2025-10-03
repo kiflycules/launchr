@@ -453,40 +453,58 @@ async fn run_app<B: ratatui::backend::Backend>(
                     KeyCode::Char('j') => app.calculator_next_history(),
                     KeyCode::Char('r') => app.calculator_recall_from_history(),
                     // Scientific mode functions
-                    KeyCode::Char('s') if app.calculator_module.mode 
-                        == crate::modules::calculator::CalculatorMode::Scientific => {
+                    KeyCode::Char('s')
+                        if app.calculator_module.mode
+                            == crate::modules::calculator::CalculatorMode::Scientific =>
+                    {
                         app.calculator_apply_function("sin");
                     }
-                    KeyCode::Char('t') if app.calculator_module.mode 
-                        == crate::modules::calculator::CalculatorMode::Scientific => {
+                    KeyCode::Char('t')
+                        if app.calculator_module.mode
+                            == crate::modules::calculator::CalculatorMode::Scientific =>
+                    {
                         app.calculator_apply_function("tan");
                     }
-                    KeyCode::Char('q') if app.calculator_module.mode 
-                        == crate::modules::calculator::CalculatorMode::Scientific => {
+                    KeyCode::Char('q')
+                        if app.calculator_module.mode
+                            == crate::modules::calculator::CalculatorMode::Scientific =>
+                    {
                         app.calculator_apply_function("sqrt");
                     }
-                    KeyCode::Char('l') if app.calculator_module.mode 
-                        == crate::modules::calculator::CalculatorMode::Scientific => {
+                    KeyCode::Char('l')
+                        if app.calculator_module.mode
+                            == crate::modules::calculator::CalculatorMode::Scientific =>
+                    {
                         app.calculator_apply_function("log");
                     }
-                    KeyCode::Char('n') if app.calculator_module.mode 
-                        == crate::modules::calculator::CalculatorMode::Scientific => {
+                    KeyCode::Char('n')
+                        if app.calculator_module.mode
+                            == crate::modules::calculator::CalculatorMode::Scientific =>
+                    {
                         app.calculator_apply_function("ln");
                     }
-                    KeyCode::Char('e') if app.calculator_module.mode 
-                        == crate::modules::calculator::CalculatorMode::Scientific => {
+                    KeyCode::Char('e')
+                        if app.calculator_module.mode
+                            == crate::modules::calculator::CalculatorMode::Scientific =>
+                    {
                         app.calculator_apply_function("exp");
                     }
-                    KeyCode::Char('a') if app.calculator_module.mode 
-                        == crate::modules::calculator::CalculatorMode::Scientific => {
+                    KeyCode::Char('a')
+                        if app.calculator_module.mode
+                            == crate::modules::calculator::CalculatorMode::Scientific =>
+                    {
                         app.calculator_apply_function("abs");
                     }
-                    KeyCode::Char('i') if app.calculator_module.mode 
-                        == crate::modules::calculator::CalculatorMode::Scientific => {
+                    KeyCode::Char('i')
+                        if app.calculator_module.mode
+                            == crate::modules::calculator::CalculatorMode::Scientific =>
+                    {
                         app.calculator_apply_function("1/x");
                     }
-                    KeyCode::Char('x') if app.calculator_module.mode 
-                        == crate::modules::calculator::CalculatorMode::Scientific => {
+                    KeyCode::Char('x')
+                        if app.calculator_module.mode
+                            == crate::modules::calculator::CalculatorMode::Scientific =>
+                    {
                         app.calculator_apply_function("x^2");
                     }
                     _ => {}

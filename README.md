@@ -61,39 +61,60 @@ Tested on Linux/macOS/Windows. On Windows, run in a true terminal (Windows Termi
 - Header shows the detected shell
 
 ### Configuration
-Config is stored at:
+Location:
 - Linux: `~/.config/launchr/config.toml`
 - macOS: `~/Library/Application Support/launchr/config.toml`
 - Windows: `%APPDATA%/launchr/config.toml`
 
-On first run, a default file is created. Example:
+On first run, a default file is created. Example (TOML):
 
 ```toml
-bookmarks = [
-  { name = "Home", path = "~", bookmark_type = "directory" },
-  { name = "Rust", path = "https://www.rust-lang.org", bookmark_type = "url" },
-]
+# Bookmarks
+[[bookmarks]]
+name = "Home"
+path = "~"
+bookmark_type = "directory"
 
-ssh_hosts = [
-  { name = "Prod", host = "prod.example.com", port = 22, user = "ubuntu" },
-]
+[[bookmarks]]
+name = "Rust"
+path = "https://www.rust-lang.org"
+bookmark_type = "url"
 
-scripts = [
-  { name = "List", command = "ls -la", description = "List current dir" },
-]
+# SSH Hosts
+[[ssh_hosts]]
+name = "Prod"
+host = "prod.example.com"
+port = 22
+user = "ubuntu"
 
+# Scripts
+[[scripts]]
+name = "List"
+command = "ls -la"
+description = "List current dir"
+
+# Git repo search paths
 git_search_paths = [
   "~/Projects",
   "~/Documents/GitHub",
   "~/code",
 ]
 
+# Scratchpad
 [scratchpad]
-editor = "notepad++.exe"  # Optional: specify your preferred editor
-# directory = "C:\\Users\\YourName\\Documents\\Notes"  # Optional: custom notes location
+editor = "nvim"            # optional
+# directory = "/path/to/notes"  # optional
+
+# Config files managed by Configs section
+[[configs]]
+name = "Bash Config"
+path = "/home/you/.bashrc"
+category = "Shell"
+description = "Bash shell configuration"
+editor = "nvim"            # optional per-entry
 ```
 
-You can also add entries in-app:
+Add entries in-app:
 - Bookmarks: `n` then `name|path|type`
 - Configs: `n` then `name|path|category|description|editor`
 - SSH: `n` then `name|user@host:port`

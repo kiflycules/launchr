@@ -53,16 +53,17 @@ impl CalculatorModule {
     pub fn append_decimal(&mut self) {
         self.error_message = None;
         // Check if current number already has a decimal
-        let parts: Vec<&str> = self.current_expression
+        let parts: Vec<&str> = self
+            .current_expression
             .split(|c: char| "+-*/^%".contains(c))
             .collect();
-        if let Some(last_part) = parts.last() {
-            if !last_part.contains('.') {
-                if last_part.is_empty() {
-                    self.current_expression.push_str("0.");
-                } else {
-                    self.current_expression.push('.');
-                }
+        if let Some(last_part) = parts.last()
+            && !last_part.contains('.')
+        {
+            if last_part.is_empty() {
+                self.current_expression.push_str("0.");
+            } else {
+                self.current_expression.push('.');
             }
         }
     }
@@ -191,7 +192,7 @@ fn format_result(value: f64) -> String {
     if value.is_nan() {
         return "NaN".to_string();
     }
-    
+
     // Remove trailing zeros and unnecessary decimal point
     let s = format!("{:.10}", value);
     let s = s.trim_end_matches('0').trim_end_matches('.');

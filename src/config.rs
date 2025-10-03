@@ -35,6 +35,16 @@ pub struct ScratchpadConfig {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, Default)]
+pub struct UserConfigEntry {
+    pub name: String,
+    pub path: String,
+    pub category: String,
+    pub description: String,
+    #[serde(default)]
+    pub editor: Option<String>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, Default)]
 pub struct ConfigFile {
     pub bookmarks: Vec<BookmarkConfig>,
     pub ssh_hosts: Vec<SSHHostConfig>,
@@ -43,18 +53,20 @@ pub struct ConfigFile {
     pub git_search_paths: Vec<String>,
     #[serde(default)]
     pub scratchpad: ScratchpadConfig,
+    #[serde(default)]
+    pub configs: Vec<UserConfigEntry>,
 }
 
 #[derive(Clone, Debug)]
 pub struct Config {
     pub path: PathBuf,
-    pub config_directory: PathBuf,
     pub bookmarks: Vec<BookmarkConfig>,
     pub ssh_hosts: Vec<SSHHostConfig>,
     pub scripts: Vec<ScriptConfig>,
     pub git_search_paths: Vec<String>,
     pub scratchpad_editor: Option<String>,
     pub scratchpad_directory: Option<PathBuf>,
+    pub configs: Vec<UserConfigEntry>,
 }
 
 impl Config {
@@ -72,13 +84,13 @@ impl Config {
         let cfg: ConfigFile = toml::from_str(&content).with_context(|| "Parsing config TOML")?;
         Ok(Self {
             path: path.clone(),
-            config_directory: path.parent().unwrap_or(&PathBuf::from(".")).to_path_buf(),
             bookmarks: cfg.bookmarks,
             ssh_hosts: cfg.ssh_hosts,
             scripts: cfg.scripts,
             git_search_paths: cfg.git_search_paths,
             scratchpad_editor: cfg.scratchpad.editor,
             scratchpad_directory: cfg.scratchpad.directory.map(PathBuf::from),
+            configs: cfg.configs,
         })
     }
 
@@ -95,6 +107,7 @@ impl Config {
                     .as_ref()
                     .map(|p| p.display().to_string()),
             },
+            configs: self.configs.clone(),
         };
         let toml = toml::to_string_pretty(&cfg)?;
         if let Some(parent) = self.path.parent() {

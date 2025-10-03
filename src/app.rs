@@ -3,10 +3,11 @@ use std::time::{Duration, Instant};
 
 use crate::config::Config;
 use crate::modules::{
-    apps::AppsModule, bookmarks::BookmarksModule, calculator::CalculatorModule, clipboard::ClipboardModule,
-    configs::ConfigsModule, docker::DockerModule, git::GitModule, history::ShellHistoryModule,
-    network::NetworkModule, notifications::NotificationsModule, scratchpad::ScratchpadModule,
-    scripts::ScriptsModule, services::ServicesModule, shell::ShellModule, ssh::SSHModule,
+    apps::AppsModule, bookmarks::BookmarksModule, calculator::CalculatorModule,
+    clipboard::ClipboardModule, configs::ConfigsModule, docker::DockerModule, git::GitModule,
+    history::ShellHistoryModule, network::NetworkModule, notifications::NotificationsModule,
+    scratchpad::ScratchpadModule, scripts::ScriptsModule, services::ServicesModule,
+    shell::ShellModule, ssh::SSHModule,
 };
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -108,7 +109,7 @@ impl App {
 
         let bookmarks_module = BookmarksModule::new(&config);
         let clipboard_module = ClipboardModule::new();
-        let configs_module = ConfigsModule::new(Some(config.config_directory.clone()))?;
+        let configs_module = ConfigsModule::new(config.path.clone())?;
         let docker_module = DockerModule::new();
         let git_module = GitModule::new(&config.git_search_paths);
         let network_module = NetworkModule::new();
@@ -1280,7 +1281,7 @@ impl App {
 
     pub fn calculator_next_history(&mut self) {
         if !self.calculator_module.history.is_empty() {
-            self.calculator_history_selected = 
+            self.calculator_history_selected =
                 (self.calculator_history_selected + 1) % self.calculator_module.history.len();
         }
     }
@@ -1296,12 +1297,14 @@ impl App {
     }
 
     pub fn calculator_recall_from_history(&mut self) {
-        self.calculator_module.recall_from_history(self.calculator_history_selected);
+        self.calculator_module
+            .recall_from_history(self.calculator_history_selected);
     }
 
     pub fn open_calculator(&mut self) {
         self.state = AppState::Calculator;
-        self.status_message = "Typing mode - type expressions or use scientific functions".to_string();
+        self.status_message =
+            "Typing mode - type expressions or use scientific functions".to_string();
     }
 
     pub fn close_calculator(&mut self) {
@@ -1312,9 +1315,11 @@ impl App {
     pub fn calculator_toggle_history(&mut self) {
         self.calculator_show_history = !self.calculator_show_history;
         if self.calculator_show_history {
-            self.status_message = "Calculator history view - press h to toggle back to calculator".to_string();
+            self.status_message =
+                "Calculator history view - press h to toggle back to calculator".to_string();
         } else {
-            self.status_message = "Calculator mode - type expressions or use scientific functions".to_string();
+            self.status_message =
+                "Calculator mode - type expressions or use scientific functions".to_string();
         }
     }
 
@@ -1348,7 +1353,8 @@ impl App {
             let buttons = self.get_calculator_buttons();
             // For now, use a simple approach - scroll when needed
             if (self.calculator_scroll_offset + row + 1) < buttons.len() {
-                if row < 5 { // Allow up to 6 rows (0-5)
+                if row < 5 {
+                    // Allow up to 6 rows (0-5)
                     self.calculator_button_position = Some((row + 1, col));
                 } else {
                     // Scroll down when at bottom
@@ -1359,10 +1365,10 @@ impl App {
     }
 
     pub fn calculator_button_left(&mut self) {
-        if let Some((row, col)) = self.calculator_button_position {
-            if col > 0 {
-                self.calculator_button_position = Some((row, col - 1));
-            }
+        if let Some((row, col)) = self.calculator_button_position
+            && col > 0
+        {
+            self.calculator_button_position = Some((row, col - 1));
         }
     }
 
@@ -1379,8 +1385,7 @@ impl App {
         if let Some((row, col)) = self.calculator_button_position {
             let buttons = self.get_calculator_buttons();
             let actual_row = self.calculator_scroll_offset + row;
-            if actual_row < buttons.len() {
-                if let Some((_, key)) = buttons[actual_row].get(col) {
+            if let Some((_, key)) = buttons.get(actual_row).and_then(|r| r.get(col)) {
                 match *key {
                     "0" | "1" | "2" | "3" | "4" | "5" | "6" | "7" | "8" | "9" => {
                         self.calculator_input_digit(key.chars().next().unwrap())
@@ -1420,7 +1425,6 @@ impl App {
                     "i" => self.calculator_apply_function("1/x"),
                     "x" => self.calculator_apply_function("x^2"),
                     _ => {}
-                }
                 }
             }
         }
@@ -1692,15 +1696,12 @@ impl App {
 
     pub fn open_config_in_editor(&mut self) -> Result<()> {
         if self.current_section == MenuSection::Configs
-            && let Err(e) = self
-                .configs_module
-                .open_in_editor(self.selected_index)
+            && let Err(e) = self.configs_module.open_in_editor(self.selected_index)
         {
             self.report_error("Open in editor failed", e);
         }
         Ok(())
     }
-
 
     pub fn search_configs(&mut self) {
         if self.current_section == MenuSection::Configs {

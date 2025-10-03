@@ -1,3 +1,4 @@
+use crate::config::{ConfigFile, UserConfigEntry};
 use anyhow::{Context, Result};
 use ratatui::style::{Color, Style};
 use serde::{Deserialize, Serialize};
@@ -22,7 +23,7 @@ pub struct ConfigEntry {
 
 pub struct ConfigsModule {
     pub configs: Vec<ConfigEntry>,
-    config_file: PathBuf,
+    config_file: PathBuf, // points to ~/.config/launchr/config.toml
     pub preview_content: Option<String>,
     pub preview_scroll: usize,
     pub preview_mode: bool,
@@ -30,15 +31,7 @@ pub struct ConfigsModule {
 }
 
 impl ConfigsModule {
-    pub fn new(config_dir: Option<PathBuf>) -> Result<Self> {
-        let config_file = config_dir
-            .unwrap_or_else(|| {
-                dirs::config_dir()
-                    .unwrap_or_else(|| PathBuf::from("."))
-                    .join("launchr")
-            })
-            .join("configs.json");
-
+    pub fn new(config_file: PathBuf) -> Result<Self> {
         let mut module = Self {
             configs: Vec::new(),
             config_file,
@@ -56,28 +49,71 @@ impl ConfigsModule {
 
     fn load(&mut self) -> Result<()> {
         if !self.config_file.exists() {
-            // Create default config entries if file doesn't exist
+            // No config file yet; start with defaults in-memory
             self.configs = Self::get_default_configs();
-            self.save()?;
             return Ok(());
         }
 
-        let content =
-            fs::read_to_string(&self.config_file).context("Failed to read configs file")?;
+        let content = fs::read_to_string(&self.config_file)
+            .with_context(|| format!("Failed to read {:?}", self.config_file))?;
 
-        self.configs = serde_json::from_str(&content).context("Failed to parse configs file")?;
+        let mut file: ConfigFile =
+            toml::from_str(&content).context("Failed to parse config.toml")?;
+
+        // If configs missing, seed defaults but don't write yet
+        if file.configs.is_empty() {
+            self.configs = Self::get_default_configs();
+        } else {
+            self.configs = file
+                .configs
+                .drain(..)
+                .map(|u| ConfigEntry {
+                    name: u.name,
+                    path: PathBuf::from(u.path),
+                    category: u.category,
+                    description: u.description,
+                    editor: u.editor,
+                    file_size: None,
+                    last_modified: None,
+                    exists: false,
+                })
+                .collect();
+        }
 
         Ok(())
     }
 
     fn save(&self) -> Result<()> {
-        if let Some(parent) = self.config_file.parent() {
-            fs::create_dir_all(parent)?;
+        if !self.config_file.exists() {
+            // If the main config doesn't exist, create a minimal one
+            if let Some(parent) = self.config_file.parent() {
+                fs::create_dir_all(parent)?;
+            }
+            let empty = ConfigFile::default();
+            let s = toml::to_string_pretty(&empty)?;
+            fs::write(&self.config_file, s)?;
         }
 
-        let content = serde_json::to_string_pretty(&self.configs)?;
-        fs::write(&self.config_file, content)?;
+        // Read full file, update configs field, then write back
+        let content = fs::read_to_string(&self.config_file)
+            .with_context(|| format!("Failed to read {:?}", self.config_file))?;
+        let mut file: ConfigFile =
+            toml::from_str(&content).context("Failed to parse config.toml")?;
 
+        file.configs = self
+            .configs
+            .iter()
+            .map(|c| UserConfigEntry {
+                name: c.name.clone(),
+                path: c.path.display().to_string(),
+                category: c.category.clone(),
+                description: c.description.clone(),
+                editor: c.editor.clone(),
+            })
+            .collect();
+
+        let out = toml::to_string_pretty(&file)?;
+        fs::write(&self.config_file, out)?;
         Ok(())
     }
 
@@ -214,13 +250,15 @@ impl ConfigsModule {
             .and_then(|s| s.to_str())
             .unwrap_or("");
         let timestamp = chrono::Local::now().format("%Y%m%d_%H%M%S");
-        
+
         let backup_path = if extension.is_empty() {
             // No extension, just add backup suffix
             config.path.with_extension(format!("backup.{}", timestamp))
         } else {
             // Has extension, replace it with backup version
-            config.path.with_extension(format!("{}.backup.{}", extension, timestamp))
+            config
+                .path
+                .with_extension(format!("{}.backup.{}", extension, timestamp))
         };
 
         fs::copy(&config.path, &backup_path)?;
@@ -335,12 +373,12 @@ impl ConfigsModule {
         }
 
         let config = &self.configs[index];
-        
+
         if !config.exists {
             anyhow::bail!("Config file does not exist: {:?}", config.path);
         }
 
-        let editor = self.get_editor(&config);
+        let editor = self.get_editor(config);
         let path_str = config.path.to_str().unwrap_or("");
 
         #[cfg(windows)]
@@ -387,7 +425,9 @@ impl ConfigsModule {
                 }
 
                 if !opened {
-                    anyhow::bail!("No suitable terminal emulator found. Please install one of: gnome-terminal, konsole, xterm, alacritty, or kitty");
+                    anyhow::bail!(
+                        "No suitable terminal emulator found. Please install one of: gnome-terminal, konsole, xterm, alacritty, or kitty"
+                    );
                 }
             }
         }
@@ -429,12 +469,15 @@ impl ConfigsModule {
         } else {
             // Default editors by platform
             #[cfg(target_os = "windows")]
-            { "notepad.exe".to_string() }
+            {
+                "notepad.exe".to_string()
+            }
             #[cfg(not(target_os = "windows"))]
-            { "nano".to_string() }
+            {
+                "nano".to_string()
+            }
         }
     }
-
 
     fn get_default_configs() -> Vec<ConfigEntry> {
         let home = dirs::home_dir().unwrap_or_else(|| PathBuf::from("."));

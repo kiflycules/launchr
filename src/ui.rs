@@ -1092,10 +1092,12 @@ fn draw_status(f: &mut Frame, app: &App, area: Rect) {
             "/: Search | Enter: Jump | Esc: Close | ↑↓/PgUp/PgDn/Home/End: Navigate"
         }
         AppState::ShellInput => "Enter: Execute | Esc: Cancel | Type shell command",
-        AppState::Calculator => {
-            match app.calculator_module.mode {
-                crate::modules::calculator::CalculatorMode::Basic => "Typing Mode: Basic (m: switch to scientific, h: history, `: exit, type expressions)",
-                crate::modules::calculator::CalculatorMode::Scientific => "Typing Mode: Scientific (m: switch to basic, h: history, `: exit, type expressions)",
+        AppState::Calculator => match app.calculator_module.mode {
+            crate::modules::calculator::CalculatorMode::Basic => {
+                "Typing Mode: Basic (m: switch to scientific, h: history, `: exit, type expressions)"
+            }
+            crate::modules::calculator::CalculatorMode::Scientific => {
+                "Typing Mode: Scientific (m: switch to basic, h: history, `: exit, type expressions)"
             }
         },
     };
@@ -1796,17 +1798,13 @@ fn draw_calculator(f: &mut Frame, app: &App, area: Rect) {
     };
 
     // Calculator area
-    let calc_area = if app.calculator_show_history {
-        chunks[0]
-    } else {
-        chunks[0]
-    };
+    let calc_area = chunks[0];
 
     let left_chunks = Layout::default()
         .direction(Direction::Vertical)
         .constraints([
-            Constraint::Length(5),  // Display
-            Constraint::Min(0),     // Button grid
+            Constraint::Length(5), // Display
+            Constraint::Min(0),    // Button grid
         ])
         .split(calc_area);
 
@@ -1843,10 +1841,17 @@ fn draw_calculator(f: &mut Frame, app: &App, area: Rect) {
                 Span::raw(&app.calculator_module.current_expression),
             ]),
         ])
-        .block(Block::default().title("Calculator Display").borders(Borders::ALL))
+        .block(
+            Block::default()
+                .title("Calculator Display")
+                .borders(Borders::ALL),
+        )
     } else {
-        Paragraph::new(display_text)
-            .block(Block::default().title("Calculator Display").borders(Borders::ALL))
+        Paragraph::new(display_text).block(
+            Block::default()
+                .title("Calculator Display")
+                .borders(Borders::ALL),
+        )
     };
 
     f.render_widget(display_widget, left_chunks[0]);
@@ -1935,7 +1940,7 @@ fn draw_calculator_buttons(f: &mut Frame, app: &App, area: Rect) {
     let min_row_height = 3; // Allow smaller rows to fit more content
     let max_visible_rows = (area.height.saturating_sub(2)) / min_row_height;
     let needs_scrolling = all_buttons.len() > max_visible_rows as usize;
-    
+
     let (visible_rows, buttons) = if needs_scrolling {
         // Use scrolling - show up to 6 rows at a time
         let visible_rows = std::cmp::min(6, max_visible_rows as usize);
@@ -1950,7 +1955,10 @@ fn draw_calculator_buttons(f: &mut Frame, app: &App, area: Rect) {
     };
 
     let num_rows = buttons.len();
-    let row_height = std::cmp::max(min_row_height, (area.height.saturating_sub(2)) / visible_rows as u16);
+    let row_height = std::cmp::max(
+        min_row_height,
+        (area.height.saturating_sub(2)) / visible_rows as u16,
+    );
 
     // Create vertical layout for rows
     let row_constraints = vec![Constraint::Length(row_height); num_rows];
@@ -1966,21 +1974,22 @@ fn draw_calculator_buttons(f: &mut Frame, app: &App, area: Rect) {
 
     // Draw border with scroll info
     let scroll_info = if needs_scrolling {
-        format!("Calculator Buttons (←→↑↓: navigate, Enter/Space: press) [{}/{}]", 
-                app.calculator_scroll_offset + 1, all_buttons.len())
+        format!(
+            "Calculator Buttons (←→↑↓: navigate, Enter/Space: press) [{}/{}]",
+            app.calculator_scroll_offset + 1,
+            all_buttons.len()
+        )
     } else {
         "Calculator Buttons (←→↑↓: navigate, Enter/Space: press)".to_string()
     };
-    let border = Block::default()
-        .title(scroll_info)
-        .borders(Borders::ALL);
+    let border = Block::default().title(scroll_info).borders(Borders::ALL);
     f.render_widget(border, area);
 
     // Draw each row of buttons
     for (row_idx, row_buttons) in buttons.iter().enumerate() {
         let num_cols = row_buttons.len();
         let col_width = std::cmp::max(10, rows[row_idx].width / num_cols as u16);
-        
+
         let cols = Layout::default()
             .direction(Direction::Horizontal)
             .constraints(vec![Constraint::Length(col_width); num_cols])
@@ -2001,27 +2010,29 @@ fn draw_calculator_buttons(f: &mut Frame, app: &App, area: Rect) {
                     .add_modifier(Modifier::BOLD)
             } else {
                 // Color coding: operators in cyan, numbers in white, special in magenta
-                let fg_color = if "+-*/^%".contains(*label) || *label == "×" || *label == "÷" || *label == "−" {
-                    Color::Cyan
-                } else if label.chars().all(|c| c.is_numeric()) || *label == "." {
-                    Color::White
-                } else if *label == "=" {
-                    Color::Green
-                } else if *label == "C" || *label == "CE" || *label == "⌫" {
-                    Color::Red
-                } else {
-                    Color::Magenta
-                };
-                
+                let fg_color =
+                    if "+-*/^%".contains(*label) || *label == "×" || *label == "÷" || *label == "−"
+                    {
+                        Color::Cyan
+                    } else if label.chars().all(|c| c.is_numeric()) || *label == "." {
+                        Color::White
+                    } else if *label == "=" {
+                        Color::Green
+                    } else if *label == "C" || *label == "CE" || *label == "⌫" {
+                        Color::Red
+                    } else {
+                        Color::Magenta
+                    };
+
                 Style::default().fg(fg_color)
             };
 
-            let button_text = format!("{}", label);
+            let button_text = label.to_string();
             let button = Paragraph::new(button_text)
                 .style(style)
                 .alignment(ratatui::layout::Alignment::Center)
                 .block(Block::default().borders(Borders::ALL));
-            
+
             f.render_widget(button, cols[col_idx]);
         }
     }
