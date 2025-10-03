@@ -277,6 +277,11 @@ impl ConfigsModule {
             return Ok(format!("Config file does not exist: {:?}", config.path));
         }
 
+        // Check if the path is a directory
+        if config.path.is_dir() {
+            return self.view_directory_config(&config.path);
+        }
+
         let content = fs::read_to_string(&config.path)?;
 
         // Limit to first 50 lines for preview
@@ -292,6 +297,92 @@ impl ConfigsModule {
         } else {
             Ok(preview)
         }
+    }
+
+    fn view_directory_config(&self, dir_path: &Path) -> Result<String> {
+        let mut result = String::new();
+        result.push_str(&format!("Directory: {}\n", dir_path.display()));
+        result.push_str(&format!("{}\n", "=".repeat(50)));
+
+        // Get directory contents
+        let mut entries = Vec::new();
+        if let Ok(read_dir) = fs::read_dir(dir_path) {
+            for entry in read_dir {
+                if let Ok(entry) = entry {
+                    let path = entry.path();
+                    let name = path.file_name()
+                        .and_then(|n| n.to_str())
+                        .unwrap_or("unknown");
+                    
+                    let is_dir = path.is_dir();
+                    let size = if is_dir {
+                        "DIR".to_string()
+                    } else {
+                        fs::metadata(&path)
+                            .map(|m| Self::format_file_size(m.len()))
+                            .unwrap_or_else(|_| "?".to_string())
+                    };
+
+                    entries.push((name.to_string(), is_dir, size, path));
+                }
+            }
+        }
+
+        // Sort entries: directories first, then files, both alphabetically
+        entries.sort_by(|a, b| {
+            match (a.1, b.1) {
+                (true, false) => std::cmp::Ordering::Less,  // dirs first
+                (false, true) => std::cmp::Ordering::Greater,
+                _ => a.0.cmp(&b.0),  // then alphabetically
+            }
+        });
+
+        // Prioritize common config files
+        let common_config_files = [
+            "config", "config.json", "config.toml", "config.yaml", "config.yml",
+            "init.lua", "init.vim", "init.lua", "settings.json", "keybindings.json",
+            "config.rasi", "style.css", "config.ini", "hyprland.conf", "waybar.css",
+            "config.lua", "init.lua", "main.lua", "options.lua", "keymaps.lua",
+            "plugins.lua", "colorscheme.lua", "lsp.lua", "treesitter.lua"
+        ];
+
+        // Reorder to put common config files at the top
+        let mut prioritized_entries = Vec::new();
+        let mut remaining_entries = entries;
+
+        // First, add common config files
+        for common_file in &common_config_files {
+            if let Some(pos) = remaining_entries.iter().position(|(name, _, _, _)| name == common_file) {
+                prioritized_entries.push(remaining_entries.remove(pos));
+            }
+        }
+
+        // Then add remaining entries
+        prioritized_entries.extend(remaining_entries);
+
+        let total_items = prioritized_entries.len();
+
+        // Display the directory tree
+        for (name, is_dir, size, _) in prioritized_entries {
+            let icon = if is_dir { "📁" } else { "📄" };
+            let type_indicator = if is_dir { "DIR" } else { "FILE" };
+            
+            // Highlight common config files
+            let is_common = common_config_files.contains(&name.as_str());
+            let prefix = if is_common { "★ " } else { "  " };
+            
+            result.push_str(&format!("{}{} {} {} ({})\n", prefix, icon, name, size, type_indicator));
+        }
+
+        if total_items == 0 {
+            result.push_str("(empty directory)\n");
+        } else {
+            result.push_str(&format!("\nTotal: {} items\n", total_items));
+            result.push_str("★ = Common config file\n");
+            result.push_str("Use 'e' to open in editor (will open directory in file manager)\n");
+        }
+
+        Ok(result)
     }
 
     pub fn search(&self, query: &str) -> Vec<usize> {
@@ -323,8 +414,108 @@ impl ConfigsModule {
             anyhow::bail!("Config file does not exist: {:?}", config.path);
         }
 
+        // Handle directories differently
+        if config.path.is_dir() {
+            return self.copy_directory_info_to_clipboard(&config.path);
+        }
+
         let content = fs::read_to_string(&config.path)?;
 
+        #[cfg(target_os = "macos")]
+        {
+            use std::process::Stdio;
+            let mut child = Command::new("pbcopy").stdin(Stdio::piped()).spawn()?;
+
+            if let Some(mut stdin) = child.stdin.take() {
+                use std::io::Write;
+                stdin.write_all(content.as_bytes())?;
+            }
+            child.wait()?;
+        }
+
+        #[cfg(target_os = "linux")]
+        {
+            use std::process::Stdio;
+            let mut child = Command::new("xclip")
+                .args(["-selection", "clipboard"])
+                .stdin(Stdio::piped())
+                .spawn()?;
+
+            if let Some(mut stdin) = child.stdin.take() {
+                use std::io::Write;
+                stdin.write_all(content.as_bytes())?;
+            }
+            child.wait()?;
+        }
+
+        #[cfg(target_os = "windows")]
+        {
+            use std::process::Stdio;
+            let mut child = Command::new("clip").stdin(Stdio::piped()).spawn()?;
+
+            if let Some(mut stdin) = child.stdin.take() {
+                use std::io::Write;
+                stdin.write_all(content.as_bytes())?;
+            }
+            child.wait()?;
+        }
+
+        Ok(content)
+    }
+
+    fn copy_directory_info_to_clipboard(&self, dir_path: &Path) -> Result<String> {
+        let mut content = String::new();
+        content.push_str(&format!("Directory: {}\n", dir_path.display()));
+        content.push_str(&format!("{}\n", "=".repeat(50)));
+
+        // Get directory contents
+        let mut entries = Vec::new();
+        if let Ok(read_dir) = fs::read_dir(dir_path) {
+            for entry in read_dir {
+                if let Ok(entry) = entry {
+                    let path = entry.path();
+                    let name = path.file_name()
+                        .and_then(|n| n.to_str())
+                        .unwrap_or("unknown");
+                    
+                    let is_dir = path.is_dir();
+                    let size = if is_dir {
+                        "DIR".to_string()
+                    } else {
+                        fs::metadata(&path)
+                            .map(|m| Self::format_file_size(m.len()))
+                            .unwrap_or_else(|_| "?".to_string())
+                    };
+
+                    entries.push((name.to_string(), is_dir, size));
+                }
+            }
+        }
+
+        // Sort entries: directories first, then files, both alphabetically
+        entries.sort_by(|a, b| {
+            match (a.1, b.1) {
+                (true, false) => std::cmp::Ordering::Less,  // dirs first
+                (false, true) => std::cmp::Ordering::Greater,
+                _ => a.0.cmp(&b.0),  // then alphabetically
+            }
+        });
+
+        let total_items = entries.len();
+
+        // Display the directory listing
+        for (name, is_dir, size) in entries {
+            let type_indicator = if is_dir { "DIR" } else { "FILE" };
+            content.push_str(&format!("{} {} ({})\n", name, size, type_indicator));
+        }
+
+        if total_items == 0 {
+            content.push_str("(empty directory)\n");
+        } else {
+            content.push_str(&format!("\nTotal: {} items\n", total_items));
+        }
+
+        // Copy to clipboard
         #[cfg(target_os = "macos")]
         {
             use std::process::Stdio;
@@ -376,6 +567,11 @@ impl ConfigsModule {
 
         if !config.exists {
             anyhow::bail!("Config file does not exist: {:?}", config.path);
+        }
+
+        // Handle directories differently
+        if config.path.is_dir() {
+            return self.open_directory_in_file_manager(&config.path);
         }
 
         let editor = self.get_editor(config);
@@ -455,6 +651,77 @@ impl ConfigsModule {
                     .spawn()
                     .map_err(|e| anyhow::anyhow!("Failed to open editor '{}': {}", editor, e))?;
             }
+        }
+
+        Ok(())
+    }
+
+    fn open_directory_in_file_manager(&self, dir_path: &Path) -> Result<()> {
+        let path_str = dir_path.to_str().unwrap_or("");
+
+        #[cfg(target_os = "linux")]
+        {
+            // Try different file managers on Linux
+            let file_managers = [
+                ("nautilus", vec![path_str]),
+                ("dolphin", vec![path_str]),
+                ("thunar", vec![path_str]),
+                ("pcmanfm", vec![path_str]),
+                ("nemo", vec![path_str]),
+                ("caja", vec![path_str]),
+                ("konqueror", vec![path_str]),
+                ("krusader", vec![path_str]),
+                ("ranger", vec![path_str]),
+                ("mc", vec![path_str]),
+            ];
+
+            let mut opened = false;
+            for (manager, args) in &file_managers {
+                if Command::new(manager).args(args).spawn().is_ok() {
+                    opened = true;
+                    break;
+                }
+            }
+
+            if !opened {
+                // Fallback: try to open in terminal with ls
+                let command = format!("ls -la '{}'; read -p 'Press Enter to close...'", path_str);
+                let terminals = [
+                    ("x-terminal-emulator", vec!["-e", "bash", "-c", &command]),
+                    ("gnome-terminal", vec!["--", "bash", "-c", &command]),
+                    ("konsole", vec!["-e", "bash", "-c", &command]),
+                    ("xterm", vec!["-e", "bash", "-c", &command]),
+                ];
+
+                for (term, args) in &terminals {
+                    if Command::new(term).args(args).spawn().is_ok() {
+                        opened = true;
+                        break;
+                    }
+                }
+            }
+
+            if !opened {
+                anyhow::bail!("No suitable file manager or terminal found to open directory");
+            }
+        }
+
+        #[cfg(target_os = "macos")]
+        {
+            // macOS: use 'open' to open directory in Finder
+            Command::new("open")
+                .arg(path_str)
+                .spawn()
+                .map_err(|e| anyhow::anyhow!("Failed to open directory in Finder: {}", e))?;
+        }
+
+        #[cfg(target_os = "windows")]
+        {
+            // Windows: use 'explorer' to open directory
+            Command::new("explorer")
+                .arg(path_str)
+                .spawn()
+                .map_err(|e| anyhow::anyhow!("Failed to open directory in Explorer: {}", e))?;
         }
 
         Ok(())

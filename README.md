@@ -135,8 +135,9 @@ Add entries in-app:
 - Open configs in editor in new terminal window (respects $EDITOR or custom per-config editor)
 - Create timestamped backups of config files
 - Preview config contents with syntax highlighting (scrollable with ↑↓, Esc to exit)
+- Directory preview: shows directory contents with file sizes, prioritizes common config files
 - Syntax highlighting for JSON, YAML, TOML, INI, bash, SSH, Git, Docker, and more
-- Copy config contents to clipboard
+- Copy config contents to clipboard (directory info for directories)
 - Search configs by name, path, category, or description
 - Auto-detects common configs on first run (bash, zsh, git, ssh, vim)
 - Shows file size and last modified time
