@@ -114,6 +114,8 @@ description = "Bash shell configuration"
 editor = "nvim"            # optional per-entry
 ```
 
+An example file is available at `examples/config.example.toml`.
+
 Add entries in-app:
 - Bookmarks: `n` then `name|path|type`
 - Configs: `n` then `name|path|category|description|editor`
