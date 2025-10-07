@@ -1,0 +1,237 @@
+# launchr full example configuration (TOML)
+
+# ========================
+# Bookmarks
+# ========================
+[[bookmarks]]
+name = "Home"
+path = "~"
+bookmark_type = "directory"
+
+[[bookmarks]]
+name = "Projects"
+path = "~/projects"
+bookmark_type = "directory"
+
+[[bookmarks]]
+name = "Docs"
+path = "https://example.com/docs"
+bookmark_type = "url"
+
+# ========================
+# SSH Hosts
+# ========================
+[[ssh_hosts]]
+name = "work-server"
+host = "192.168.0.100"   # placeholder IP
+port = 22
+user = "username"
+
+[[ssh_hosts]]
+name = "prod-server"
+host = "prod.example.com"
+port = 22
+user = "deploy"
+
+[[ssh_hosts]]
+name = "staging-server"
+host = "staging.example.com"
+port = 22
+user = "deploy"
+
+# ========================
+# Scripts
+# ========================
+[[scripts]]
+name = "backup"
+command = "bash ~/scripts/backup.sh"
+description = "Run backup script"
+
+[[scripts]]
+name = "cleanup"
+command = "rm -rf /tmp/*"
+description = "Clean temporary files"
+
+# ========================
+# Git search paths
+# ========================
+git_search_paths = [
+  "~/projects",
+  "~/work",
+  "~/"          # optional home-wide search
+]
+
+# ========================
+# Scratchpad
+# ========================
+[scratchpad]
+editor = "nvim"                    # editor for notes
+directory = "~/scratch"            # default scratchpad location
+
+# ========================
+# Config files (Configs module)
+# ========================
+[[configs]]
+name = "Bash Config"
+path = "~/.bashrc"
+category = "Shell"
+description = "Bash shell configuration"
+editor = "nvim"
+
+[[configs]]
+name = "Zsh Config"
+path = "~/.zshrc"
+category = "Shell"
+description = "Zsh shell configuration"
+editor = "nvim"
+
+[[configs]]
+name = "Git Config"
+path = "~/.gitconfig"
+category = "Git"
+description = "Global Git configuration"
+editor = "nvim"
+
+[[configs]]
+name = "SSH Config"
+path = "~/.ssh/config"
+category = "SSH"
+description = "SSH client configuration"
+editor = "nvim"
+
+[[configs]]
+name = "Vim Config"
+path = "~/.vimrc"
+category = "Editor"
+description = "Vim editor configuration"
+editor = "nvim"
+
+[[configs]]
+name = "Neovim"
+path = "~/.config/nvim"
+category = "Editor"
+description = "Neovim configuration"
+editor = "nvim"
+
+[[configs]]
+name = "Alacritty"
+path = "~/.config/alacritty/alacritty.toml"
+category = "Terminal"
+description = "Alacritty terminal configuration"
+editor = "nvim"
+
+[[configs]]
+name = "System Monitor"
+path = "~/.config/system-monitor/config.toml"
+category = "System"
+description = "System monitor configuration"
+editor = "nvim"
+
+[[configs]]
+name = "Window Manager"
+path = "~/.config/window-manager/config.conf"
+category = "WM"
+description = "Window manager configuration"
+editor = "nvim"
+
+[[configs]]
+name = "Status Bar"
+path = "~/.config/status-bar/config.toml"
+category = "Bar"
+description = "Status bar configuration"
+editor = "nvim"
+
+[[configs]]
+name = "Neofetch"
+path = "~/.config/neofetch/config.conf"
+category = "System"
+description = "Neofetch configuration"
+editor = "nvim"
+
+[[configs]]
+name = "Screensaver"
+path = "~/.config/screensaver"
+category = "System"
+description = "Screensaver configuration"
+editor = "nvim"
+
+[[configs]]
+name = "systemd user"
+path = "~/.config/systemd/user"
+category = "Systemd"
+description = "User systemd units"
+editor = "nvim"
+
+# ========================
+# Application Configs (Generic)
+# ========================
+[[configs]]
+name = "App Main Config"
+path = "~/.config/example-app/config.json"
+category = "App"
+description = "Main configuration for a generic app"
+editor = "nvim"
+
+[[configs]]
+name = "App Data Store"
+path = "~/.config/example-app/datastore.dat"
+category = "App"
+description = "Binary datastore for example app"
+editor = "hexedit"
+
+[[configs]]
+name = "App Profiles"
+path = "~/.config/example-app/profiles.json"
+category = "App"
+description = "User profiles for example app"
+editor = "nvim"
+
+# ========================
+# Launchr Self Configuration
+# ========================
+[[configs]]
+name = "launchr config"
+path = "~/.config/launchr/config.toml"
+category = "App"
+description = "Launchr configuration"
+editor = "nvim"
+
+# ========================
+# SSH Log / Metadata
+# ========================
+[[configs]]
+name = "SSH Log"
+path = "~/.lazyssh/lazyssh.log"
+category = "SSH"
+description = "SSH connection history"
+editor = "nvim"
+
+[[configs]]
+name = "SSH Metadata"
+path = "~/.lazyssh/metadata.json"
+category = "SSH"
+description = "SSH metadata and stats"
+editor = "nvim"
+
+# ========================
+# Optional / placeholders (not yet read by app)
+# ========================
+# [docker]
+# show_all = false
+
+# [services]
+# user_scope = "system"  # or "user"
+
+# [network]
+# default_filter = "ESTABLISHED"
+
+# [apps]
+# path_exclude = ["/snap/bin", "/opt/ignore"]
+
+# [shell]
+# default_dir = "~"
+# history_size = 1000
+
+# [scratchpad]
+# filename_pattern = "note_%Y%m%d_%H%M%S.txt"
+# extension = ".txt"
